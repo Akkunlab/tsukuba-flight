@@ -26,8 +26,10 @@ document.body.classList.add(isTouch ? 'touch' : 'desktop');
 
 /** 描画の品質。?quality=low|medium|high で指定できる（省略時はスマホ medium、パソコン high） */
 type Quality = 'low' | 'medium' | 'high';
+const isQuality = (q: unknown): q is Quality => q === 'low' || q === 'medium' || q === 'high';
 const qParam = new URLSearchParams(location.search).get('quality');
-const quality: Quality = qParam === 'low' || qParam === 'medium' || qParam === 'high' ? qParam : isTouch ? 'medium' : 'high';
+const qSaved = loadSettings().quality;
+const quality: Quality = isQuality(qParam) ? qParam : isQuality(qSaved) ? qSaved : isTouch ? 'medium' : 'high';
 const Q = {
   low: { pixelRatio: 1, shadows: false, shadowMap: 1024, shadowHalf: 200, trees: 3000, sampler: 512 },
   medium: { pixelRatio: 1.5, shadows: true, shadowMap: 2048, shadowHalf: 260, trees: 7000, sampler: 1024 },
@@ -124,6 +126,23 @@ let previewModel: VehicleModel | null = null;
 let currentWind = { x: 0, y: 0, z: 0 };
 let replayExploded = false;
 let lastInput = { x: 0, y: 0, throttle: 0 };
+
+// プレイ記録の細かいデータ（数値だけ）。0.5 秒ごとの飛び方と音楽、出来事
+const EVENT = { takeoff: 1, checkpoint: 2, pop: 3, touchdown: 4, warning: 5, camera: 6, pause: 7 } as const;
+let rec = { track: [] as number[][], music: [] as number[][], events: [] as number[][], last: -1, cameraChanges: 0, pauses: 0 };
+function recEvent(code: number) {
+  if (flight && rec.events.length < 500) rec.events.push([Math.round(Math.max(0, flight.time) * 10), code]);
+}
+function recSample() {
+  const f = flight!;
+  if (f.phase !== 'flying' || f.time - rec.last < 0.5 || rec.track.length >= 2400) return;
+  rec.last = f.time;
+  const c = f.craft;
+  const t = Math.round(f.time * 10);
+  rec.track.push([t, Math.round(c.pos.x), Math.round(c.pos.y), Math.round(c.pos.z), Math.round(c.yaw * 100), Math.round(c.pitch * 100), Math.round(c.roll * 100), Math.round(c.throttle * 100), Math.round(c.speed * 10), Math.round(lastInput.x * 100), Math.round(lastInput.y * 100)]);
+  const m = audio.musicState();
+  if (m) rec.music.push([t, m.bpm, Math.round(m.energy * 100), m.density, m.shift, m.reversed ? 1 : 0]);
+}
 const focus = new THREE.Vector3();
 
 function setScreen(s: Screen) {
@@ -336,6 +355,7 @@ function startFlight() {
   audio.startFlight(vehicle.engine, vehicle.enginePitch * fuel.tone, passengersOnBoard.map((p) => p.sound));
   paused = false;
   endTimer = 0;
+  rec = { track: [], music: [], events: [], last: -1, cameraChanges: 0, pauses: 0 };
   cameraMode = 'chase';
   $('#result').classList.remove('collapsed');
   setScreen('flying');
@@ -365,9 +385,11 @@ function handleEvents(ev: FlightEvent[]) {
         controls.reset(flight!.launchThrottle);
         break;
       case 'takeoff':
+        recEvent(EVENT.takeoff);
         showMessage('離陸');
         break;
       case 'checkpoint':
+        recEvent(EVENT.checkpoint);
         audio.sfx('checkpoint');
         showMessage(`${e.text} 通過`);
         rings.setCurrent(flight!.nextCheckpoint);
@@ -376,6 +398,7 @@ function handleEvents(ev: FlightEvent[]) {
         showMessage('全リング通過 ― 着陸してボーナス', 4);
         break;
       case 'pop':
+        recEvent(EVENT.pop);
         audio.sfx('checkpoint');
         balloons.pop(e.value!);
         showMessage(`風船 ${flight!.stats.targets} / ${flight!.targets.length}`, 1.5);
@@ -384,9 +407,11 @@ function handleEvents(ev: FlightEvent[]) {
         showMessage('全部割った ― 着陸してボーナス', 4);
         break;
       case 'touchdown':
+        recEvent(EVENT.touchdown);
         showMessage('接地', 1.2);
         break;
       case 'warning':
+        recEvent(EVENT.warning);
         audio.sfx('warning');
         showMessage(e.text ?? '', 3);
         break;
@@ -434,6 +459,17 @@ function onFlightEnd() {
     device: isTouch ? 'touch' : 'desktop',
     end: [Math.round(f.craft.pos.x), Math.round(f.craft.pos.y), Math.round(f.craft.pos.z)],
     path: f.stats.path,
+    track: rec.track,
+    music: rec.music,
+    events: rec.events,
+    extra: {
+      trailMode: s.trail.mode,
+      trailStyle: s.trail.style,
+      vehicleColor: s.vehicleColor,
+      quality,
+      cameraChanges: rec.cameraChanges,
+      pauses: rec.pauses,
+    },
   });
 }
 
@@ -507,6 +543,10 @@ function autoTrailColor(t: number): THREE.Color {
 function togglePause(force?: boolean) {
   if (screen !== 'flying' || !flight || flight.phase === 'ended') return;
   paused = force ?? !paused;
+  if (paused) {
+    rec.pauses++;
+    recEvent(EVENT.pause);
+  }
   $('#pause').classList.toggle('hidden', !paused);
   if (audio.ctx) {
     if (paused) void audio.ctx.suspend();
@@ -547,6 +587,8 @@ function cycleCamera() {
     cycleReplayCamera();
     return;
   }
+  rec.cameraChanges++;
+  recEvent(EVENT.camera);
   cameraMode = cameraMode === 'chase' ? 'far' : cameraMode === 'far' ? 'cockpit' : 'chase';
 }
 function cycleReplayCamera() {
@@ -615,6 +657,7 @@ function frame(now: number) {
     }
     currentWind = flight.wind;
     updateFlightVisuals(dt);
+    recSample();
     updateHud();
     if (endTimer > 0) {
       endTimer -= dt;

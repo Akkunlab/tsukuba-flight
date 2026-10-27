@@ -11,7 +11,7 @@ TF_URL=<本番 URL> npm run evolve:stats   # evolution/stats.json に集計を�
 npm run evolve:pick                      # evolution/direction.json に「何を変えるか」をランダムに決める
 ```
 
-1. `evolution/stats.json` と `evolution/direction.json` を読む
+1. `evolution/stats.json` と `evolution/direction.json` を読む（stats には機体・燃料・搭乗者・ミッションごとの結果、墜落の多い場所、搭乗者の音楽がどう鳴っていたか（テンポ・勢い・リズムの細かさ）などが入っている）
 2. `src/content/evolution-log.json` を読み、これまでの変化と重ならないことを確かめる
 3. direction の primary を必ず 1 つ実装する。中身（何の乗り物か、どんな音か）は自由に考えてよい
 4. `src/content/evolution-log.json` の末尾に次の世代を足す（generation は連番、date は今日、title は短く、summary は遊ぶ人に向けた 1〜2 文）

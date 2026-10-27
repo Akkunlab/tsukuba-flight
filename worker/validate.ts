@@ -20,6 +20,19 @@ export interface FlightRecord {
   device: string;
   end: [number, number, number];
   path: [number, number, number][];
+  track: number[][];
+  music: number[][];
+  events: number[][];
+  extra: Extra;
+}
+
+export interface Extra {
+  trailMode: string;
+  trailStyle: string;
+  vehicleColor: string | null;
+  quality: string;
+  cameraChanges: number;
+  pauses: number;
 }
 
 export interface ElementRecord {
@@ -50,6 +63,15 @@ export function cleanText(v: unknown, max: number): string {
     .replace(/https?:\/\/\S+/gi, '')
     .trim()
     .slice(0, max);
+}
+
+/** 数値だけの行（長さ width）の配列。数値でない行は捨てる */
+function rows(v: unknown, width: number, max: number): number[][] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .slice(0, max)
+    .filter((r): r is number[] => Array.isArray(r) && r.length === width && r.every((x) => typeof x === 'number' && Number.isFinite(x)))
+    .map((r) => r.map((x) => Math.round(Math.max(-1e7, Math.min(1e7, x)))));
 }
 
 export function parseFlight(body: unknown): Result<FlightRecord> {
@@ -83,6 +105,8 @@ export function parseFlight(body: unknown): Result<FlightRecord> {
       : null;
   const path = Array.isArray(b.path) ? b.path.slice(0, 1000).map(pt).filter((p): p is [number, number, number] => p !== null) : [];
   const end = pt(b.end) ?? path[path.length - 1] ?? [0, 0, 0];
+  const x = (b.extra && typeof b.extra === 'object' ? b.extra : {}) as Record<string, unknown>;
+  const pick = (v: unknown, allowed: string[]) => (typeof v === 'string' && allowed.includes(v) ? v : 'other');
   return {
     ok: true,
     value: {
@@ -105,6 +129,17 @@ export function parseFlight(body: unknown): Result<FlightRecord> {
       device,
       end,
       path,
+      track: rows(b.track, 11, 2400),
+      music: rows(b.music, 6, 2400),
+      events: rows(b.events, 2, 500),
+      extra: {
+        trailMode: pick(x.trailMode, ['auto', 'custom']),
+        trailStyle: pick(x.trailStyle, ['ribbon', 'rainbow', 'dots']),
+        vehicleColor: typeof x.vehicleColor === 'string' && COLOR.test(x.vehicleColor) ? x.vehicleColor : null,
+        quality: pick(x.quality, ['low', 'medium', 'high']),
+        cameraChanges: Math.round(n(x.cameraChanges, 0, 1e4) ?? 0),
+        pauses: Math.round(n(x.pauses, 0, 1e4) ?? 0),
+      },
     },
   };
 }

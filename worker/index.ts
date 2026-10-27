@@ -8,7 +8,7 @@ export interface Env {
 }
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
-const MAX_BODY = 64 * 1024;
+const MAX_BODY = 512 * 1024;
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
@@ -32,13 +32,15 @@ export async function handleApi(req: Request, env: Env): Promise<Response> {
       const f = r.value;
       await env.DB.prepare(
         `INSERT OR IGNORE INTO flights (id, player_id, created_at, generation, mode, vehicle, fuel, passengers, trail_color,
-          outcome, cause, duration_s, distance_m, max_alt_m, max_speed_ms, checkpoints, score, device, end_x, end_y, end_z, path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          outcome, cause, duration_s, distance_m, max_alt_m, max_speed_ms, checkpoints, score, device, end_x, end_y, end_z, path,
+          track, music, events, extra)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
         .bind(
           f.id, f.playerId, Date.now(), f.generation, f.mode, f.vehicle, f.fuel, JSON.stringify(f.passengers), f.trailColor,
           f.outcome, f.cause, f.duration, f.distance, f.maxAlt, f.maxSpeed, f.checkpoints, f.score, f.device,
           f.end[0], f.end[1], f.end[2], JSON.stringify(f.path),
+          JSON.stringify(f.track), JSON.stringify(f.music), JSON.stringify(f.events), JSON.stringify(f.extra),
         )
         .run();
       return json({ ok: true });
@@ -87,7 +89,7 @@ export async function handleApi(req: Request, env: Env): Promise<Response> {
       const since = Date.now() - days * 86400_000;
       const { results } = await env.DB.prepare(
         `SELECT created_at, generation, mode, vehicle, fuel, passengers, trail_color, outcome, duration_s, distance_m,
-                max_alt_m, max_speed_ms, checkpoints, score, device, end_x, end_y, end_z
+                max_alt_m, max_speed_ms, checkpoints, score, device, end_x, end_y, end_z, music
          FROM flights WHERE created_at >= ? ORDER BY created_at DESC LIMIT 5000`,
       )
         .bind(since)

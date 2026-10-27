@@ -22,6 +22,8 @@ export interface FlightRow {
   end_x: number | null;
   end_y: number | null;
   end_z: number | null;
+  /** 0.5 秒ごとの音楽の状態 [時刻×10, BPM, 勢い%, 細かさ, 移調, 逆再生] の JSON */
+  music?: string | null;
 }
 
 const KNOWN = {
@@ -116,6 +118,26 @@ export function buildStats(rows: FlightRow[], elements: { recipe: string }[], da
     byDay[d] = (byDay[d] ?? 0) + 1;
   }
   const passengerCounts = rows.map((r) => parsePassengers(r.passengers).length);
+  // 搭乗者の音楽がどう鳴っていたか（数値だけ）
+  let mN = 0, bpm = 0, energy = 0, reversed = 0;
+  const density = [0, 0, 0];
+  for (const r of rows) {
+    let m: unknown;
+    try {
+      m = JSON.parse(r.music ?? '[]');
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(m)) continue;
+    for (const row of m) {
+      if (!Array.isArray(row) || row.length !== 6 || !row.every((x) => typeof x === 'number')) continue;
+      mN++;
+      bpm += row[1];
+      energy += row[2];
+      if (row[3] >= 0 && row[3] <= 2) density[row[3]]++;
+      reversed += row[5] ? 1 : 0;
+    }
+  }
   return {
     generatedAt: new Date().toISOString(),
     currentGeneration: GENERATION,
@@ -143,6 +165,15 @@ export function buildStats(rows: FlightRow[], elements: { recipe: string }[], da
       }),
     trailHues: trailHue,
     customElements: { total: elements.length, waves, avgBpm: bpmN ? Math.round(bpmSum / bpmN) : null },
+    music: mN
+      ? {
+          samples: mN,
+          avgBpm: Math.round(bpm / mN),
+          avgEnergy: Math.round(energy / mN),
+          densityShare: { half: +(density[0] / mN).toFixed(2), normal: +(density[1] / mN).toFixed(2), double: +(density[2] / mN).toFixed(2) },
+          reversedShare: +(reversed / mN).toFixed(2),
+        }
+      : null,
   };
 }
 

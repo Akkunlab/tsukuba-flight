@@ -31,6 +31,14 @@ function noiseSource(ctx: AudioContext): AudioBufferSourceNode {
   return s;
 }
 
+export interface MusicInfo {
+  bpm: number;
+  energy: number;
+  density: 0 | 1 | 2;
+  shift: number;
+  reversed: boolean;
+}
+
 export function semitone(base: number, st: number) {
   return base * Math.pow(2, st / 12);
 }
@@ -51,6 +59,8 @@ export class RecipePlayer {
   /** 旋律をずらす量。数小節ごとに変えて、同じ繰り返しにならないようにする */
   private rotation = 0;
   state: FlightSoundState = { throttle: 0.5, speed: 0, altitude: 0, speedRatio: 0.5 };
+  /** いま鳴らしている音楽の状態（プレイ記録用）。density: 0 半分 / 1 ふつう / 2 細かい */
+  info: MusicInfo = { bpm: 0, energy: 0, density: 1, shift: 0, reversed: false };
 
   constructor(ctx: AudioContext, recipe: SoundRecipe, dest: AudioNode, volume = 1) {
     this.ctx = ctx;
@@ -118,6 +128,13 @@ export class RecipePlayer {
     const climb = st8.climb ?? 0;
     const len = r.pattern.length;
     const sustained = r.gate >= 0.99 && len === 1;
+    this.info = {
+      bpm: Math.round(30 / stepDur),
+      energy,
+      density: energy < 0.28 ? 0 : energy > 0.72 ? 2 : 1,
+      shift: Math.round(transpose + (turn > 0.35 ? 6 : 0) + (climb < -4 ? -12 : 0)),
+      reversed: turn < -0.35,
+    };
     while (this.nextTime < ahead) {
       const i = this.stepIndex;
       if (i > 0 && i % 32 === 0) this.rotation = (this.rotation + 1 + Math.floor(Math.random() * 3)) % Math.max(len, 1);
@@ -498,6 +515,11 @@ export class AudioEngine {
     src.connect(filter).connect(gain).connect(this.engineBus);
     src.start();
     this.wind = { gain, filter, src };
+  }
+
+  /** 搭乗者の音楽の今の状態（最初の搭乗者。誰も乗っていなければ null） */
+  musicState(): MusicInfo | null {
+    return this.players[0]?.info ?? null;
   }
 
   update(s: FlightSoundState) {

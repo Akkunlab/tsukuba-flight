@@ -46,6 +46,8 @@ export interface Settings {
   trail: TrailSetting;
   vehicleColor: string | null;
   volumes: { master: number; engine: number; passengers: number };
+  /** 描画の重さ。auto はスマホ medium、パソコン high */
+  quality?: 'auto' | 'low' | 'medium' | 'high';
 }
 
 export function loadSettings(): Partial<Settings> {
@@ -93,6 +95,13 @@ export interface FlightPayload {
   device: 'desktop' | 'touch';
   end: [number, number, number];
   path: [number, number, number][];
+  /** 0.5 秒ごと：[時刻×10, x, y, z, yaw×100, pitch×100, roll×100, スロットル%, 速さ×10, 左右%, 上下%] */
+  track: number[][];
+  /** 0.5 秒ごと：[時刻×10, BPM, 勢い%, 細かさ(0..2), 移調, 逆再生(0/1)] */
+  music: number[][];
+  /** [時刻×10, 出来事の番号] */
+  events: number[][];
+  extra: { trailMode: string; trailStyle: string; vehicleColor: string | null; quality: string; cameraChanges: number; pauses: number };
 }
 
 async function post(path: string, body: unknown): Promise<boolean> {

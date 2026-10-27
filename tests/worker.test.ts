@@ -76,9 +76,18 @@ describe('入力の検査', () => {
   });
 
   it('知らない項目（個人情報など）は保存対象に入らない', () => {
-    const r = parseFlight({ ...goodFlight, email: 'a@example.com', name: '山田' });
+    const r = parseFlight({
+      ...goodFlight,
+      email: 'a@example.com',
+      name: '山田',
+      track: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], ['山田', 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]],
+      extra: { trailMode: 'auto', note: '山田', quality: 'a@example.com' },
+    });
     expect(r.ok).toBe(true);
-    if (r.ok) expect(JSON.stringify(r.value)).not.toMatch(/example\.com|山田/);
+    if (r.ok) {
+      expect(JSON.stringify(r.value)).not.toMatch(/example\.com|山田/);
+      expect(r.value.track).toHaveLength(1);
+    }
   });
 });
 
@@ -92,7 +101,7 @@ describe('API', () => {
   });
 
   it('大きすぎる本文は 400', async () => {
-    const res = await handleApi(req('/api/flights', { method: 'POST', body: JSON.stringify({ ...goodFlight, cause: 'x'.repeat(70000) }) }), env());
+    const res = await handleApi(req('/api/flights', { method: 'POST', body: JSON.stringify({ ...goodFlight, cause: 'x'.repeat(600000) }) }), env());
     expect(res.status).toBe(400);
   });
 });

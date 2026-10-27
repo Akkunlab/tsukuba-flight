@@ -119,6 +119,8 @@ button.stat .u::after { content: ' ›'; }
 .detail h3 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; }
 .detail h3 .icon { width: 30px; height: 30px; color: var(--accent); }
 .detail p { margin: 0; color: #c9d5df; font-size: 14px; line-height: 1.6; }
+.detail a { color: var(--text); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+.detail a:hover { color: var(--accent); }
 .spec { display: grid; grid-template-columns: 64px 1fr 76px; gap: 8px 10px; align-items: center; font-size: 12px; }
 .spec .lbl { color: var(--muted); }
 .spec .meter { height: 6px; background: rgba(255,255,255,0.08); position: relative; }
