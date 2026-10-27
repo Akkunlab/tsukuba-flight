@@ -21,7 +21,6 @@ export interface FlightStats {
   maxAlt: number;
   maxSpeed: number;
   checkpoints: number;
-  /** 割った風船の数 */
   targets: number;
   path: [number, number, number][];
 }
@@ -59,12 +58,10 @@ export class Flight {
   tookOff = false;
   wind: Vec3 = { x: 0, y: 0, z: 0 };
   stats: FlightStats = { duration: 0, distance: 0, maxAlt: 0, maxSpeed: 0, checkpoints: 0, targets: 0, path: [] };
-  /** 風船の位置と、割れたかどうか */
   readonly targets: Vec3[] = [];
   readonly popped: boolean[] = [];
   readonly replay: ReplayFrame[] = [];
   private lastReplayT = -1;
-  /** 地面からの高さ */
   altitude = 0;
   private settle = 0;
   private lastPathT = -1;
@@ -114,7 +111,6 @@ export class Flight {
     return { x: c.x, y: this.world.terrainHeight(c.x, c.z) + c.alt, z: c.z };
   }
 
-  /** dt 秒進める。起きた出来事を返す */
   update(input: Input, dt: number): FlightEvent[] {
     const ev: FlightEvent[] = [];
     if (this.phase === 'ended') return ev;
@@ -140,7 +136,6 @@ export class Flight {
     const ground = this.world.surfaceHeight(c.pos.x, c.pos.z);
     step(c, vehicle, fuel, input, this.wind, ground.height, dt);
 
-    // 接地・着陸・墜落
     const surf = this.world.surfaceHeight(c.pos.x, c.pos.z);
     this.altitude = c.pos.y - surf.height;
     if (c.pos.y <= surf.height) {
@@ -161,14 +156,12 @@ export class Flight {
       ev.push({ type: 'takeoff' });
     }
 
-    // 建物・森への衝突
     const hit = this.world.hitTest(c.pos.x, c.pos.y + vehicle.radius * 0.5, c.pos.z, vehicle.radius);
     if (hit && !(c.onGround && hit.top <= c.pos.y + 0.5)) {
       const what = hit.kind === 'tree' ? '森の木' : hit.name ?? this.world.nearestName(c.pos.x, c.pos.z) ?? '建物';
       return this.end('crashed', `${what}にぶつかった`, ev);
     }
 
-    // 記録
     const d = Math.hypot(c.pos.x - before.x, c.pos.y - before.y, c.pos.z - before.z);
     this.stats.distance += d;
     this.stats.maxAlt = Math.max(this.stats.maxAlt, this.altitude);
@@ -179,7 +172,6 @@ export class Flight {
       this.stats.path.push([Math.round(c.pos.x), Math.round(c.pos.y), Math.round(c.pos.z)]);
     }
 
-    // チェックポイント
     const cp = this.checkpointPosition(this.nextCheckpoint);
     if (cp && Math.hypot(c.pos.x - cp.x, c.pos.y - cp.y, c.pos.z - cp.z) < RING_RADIUS + vehicle.radius) {
       this.nextCheckpoint++;
@@ -188,7 +180,6 @@ export class Flight {
       if (this.nextCheckpoint === this.checkpoints.length) ev.push({ type: 'allCheckpoints' });
     }
 
-    // 風船
     const tr = mode.targets?.radius ?? 0;
     for (let i = 0; i < this.targets.length; i++) {
       if (this.popped[i]) continue;
@@ -201,13 +192,11 @@ export class Flight {
       }
     }
 
-    // リプレイ
     if (this.time - this.lastReplayT >= 1 / REPLAY_HZ && this.replay.length < REPLAY_MAX) {
       this.lastReplayT = this.time;
       this.recordFrame();
     }
 
-    // 着陸完了（地上で止まった）
     const horiz = Math.hypot(c.vel.x, c.vel.z);
     if (c.onGround && this.tookOff) {
       const still = vehicle.model === 'plane' ? horiz < 2 : horiz < 2 && c.throttle < 0.62;
@@ -278,7 +267,6 @@ export class Flight {
     if (this.phase !== 'ended') this.end('quit', 'やめた', []);
   }
 
-  /** スタート時に入れるスロットル */
   get launchThrottle() {
     return launchThrottle(this.setup.vehicle);
   }

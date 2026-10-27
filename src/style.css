@@ -77,20 +77,19 @@ select option { color: #000; }
 #title { background: linear-gradient(180deg, rgba(3,6,10,0.15) 30%, rgba(3,6,10,0.75)); align-items: flex-end; padding-bottom: 7vh; }
 .title-box { text-align: center; width: min(760px, 100%); display: flex; flex-direction: column; align-items: center; }
 .tagline { margin: 14px 0 22px; font-size: 15px; color: var(--text); text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
-.stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(8px); margin-bottom: 14px; }
-.stat { padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; align-items: baseline; text-align: left; border-left: 1px solid var(--line); }
+.stats-strip { display: grid; grid-template-columns: repeat(3, 1fr); width: min(560px, 100%); border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(8px); margin-bottom: 14px; }
+.stat { font: inherit; color: inherit; border: none; border-radius: 0; background: none; padding: 10px 14px; display: grid; grid-template-columns: 1fr auto; align-items: baseline; text-align: left; border-left: 1px solid var(--line); }
 .stat:first-child { border-left: none; }
+button.stat { cursor: pointer; }
+button.stat:hover { background: rgba(150,210,255,0.08); }
+button.stat .u::after { content: ' ›'; }
+.evo-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 13px; color: #c9d5df; }
+.evo-list b { color: var(--accent); }
 .stat .k { grid-column: 1 / -1; }
 .stat .v { font-family: var(--mono); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stat .u { font-size: 11px; color: var(--muted); }
-.generation { margin-bottom: 18px; font-size: 13px; color: var(--muted); text-shadow: 0 1px 6px rgba(0,0,0,0.8); }
-.evolution { margin: 18px auto 0; width: min(560px, 100%); text-align: left; background: var(--panel); border: 1px solid var(--line); padding: 8px 14px; max-height: 26vh; overflow: auto; touch-action: pan-y; }
-.evolution summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-.evolution li { margin: 8px 0; font-size: 13px; }
-.evolution li b { color: var(--accent); }
 .note { color: var(--muted); font-size: 11px; margin-top: 12px; text-shadow: 0 1px 6px rgba(0,0,0,0.8); max-width: 560px; }
 
-/* ---------- 格納庫 ---------- */
 #hangar {
   padding: 0; display: grid; z-index: 10;
   grid-template-columns: minmax(250px, 300px) 1fr minmax(300px, 380px);
@@ -161,7 +160,6 @@ select option { color: #000; }
 .editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .spacer { flex: 1; }
 
-/* ---------- 結果とリプレイ ---------- */
 #result { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
 #result .result-box { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: min(420px, calc(100% - 32px)); pointer-events: auto; }
 #result.collapsed .result-box { display: none; }
@@ -180,7 +178,6 @@ select option { color: #000; }
 .replay-bar .k::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); margin-right: 6px; animation: blink 1.2s infinite; }
 @keyframes blink { 50% { opacity: 0.2; } }
 
-/* ---------- 飛行中の計器 ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; color: var(--hud); }
 #hud .k { color: rgba(111,224,255,0.65); }
 .hud-sit { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 12px; padding: 8px 12px; display: grid; gap: 3px; min-width: 210px; color: var(--text); }
@@ -243,9 +240,7 @@ body.flying #credit, body.in-hangar #credit { display: none; }
   .loadout { gap: 10px; }
   .hud-sit .fuel-row .k { display: inline; }
   .box { top: 40%; }
-  .stats-strip { grid-template-columns: repeat(2, 1fr); }
-  .stat:nth-child(3) { border-left: none; }
-  .stat:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .stat .v { font-size: 20px; }
   .hud-sit { min-width: 0; max-width: 46vw; font-size: 12px; }
   .hud-sit .row { grid-template-columns: 1fr; gap: 0; }
   .hud-sit .row .k { display: none; }

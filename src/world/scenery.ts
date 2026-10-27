@@ -1,5 +1,4 @@
 // 景色の要素のビルダー。content/scenery.ts の kind がここのキーに対応する。
-// 新しい種類の景色を足すときは、ここにビルダーを 1 つ追加して content/scenery.ts にデータを足す。
 import * as THREE from 'three';
 import type { SceneryDef } from '../content/types';
 import type { Vec3 } from '../sim/physics';
@@ -32,7 +31,6 @@ export function textSprite(label: string, opts: { color?: string; scale?: number
   g.font = font;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  // 地図の注記のような、縁取りの文字
   g.lineWidth = 8;
   g.strokeStyle = 'rgba(8,14,22,0.75)';
   g.strokeText(label, w / 2, 42);
@@ -76,7 +74,6 @@ function getCloudTexture() {
 }
 
 export const SCENERY_BUILDERS: Record<string, Builder> = {
-  /** 地名の看板（空中に浮かぶラベル） */
   label(def, ctx) {
     const g = new THREE.Group();
     const x = num(def.params.x, 0);
@@ -85,7 +82,6 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
     const s = textSprite(text(def.params.text, def.name), { scale: num(def.params.scale, 1.4) });
     s.position.set(x, y + 4, z);
     g.add(s);
-    // 建物から文字まで細い線を引く
     const ground = ctx.world.terrainHeight(x, z);
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, ground + 2, z), new THREE.Vector3(x, y, z)]),
@@ -95,7 +91,6 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
     return { object: g };
   },
 
-  /** 吹き流し。風向きに向く */
   windsock(def, ctx) {
     const g = new THREE.Group();
     const x = num(def.params.x, 0);
@@ -122,7 +117,6 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
     };
   },
 
-  /** 雲。ゆっくり風に流れる */
   clouds(def, ctx) {
     const g = new THREE.Group();
     const r = rng(num(def.params.seed, 1));

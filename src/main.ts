@@ -9,7 +9,7 @@ import { Hangar } from './ui/hangar';
 import { icon } from './ui/icons';
 import { Flight, RING_RADIUS, type FlightEvent, type Phase } from './sim/flight';
 import { forward } from './sim/physics';
-import { PAD, RUNWAY_START, World, inRunwayArea, type WorldData } from './sim/world';
+import { PAD, World, inRunwayArea, type WorldData } from './sim/world';
 import { buildAirfield, buildBuildings, buildTerrain, buildTrees, buildWater, loadTexture, makePhotoSampler } from './world/terrain';
 import { buildScenery, type SceneryObject } from './world/scenery';
 import { buildVehicleModel, type VehicleModel } from './render/vehicleMesh';
@@ -37,7 +37,6 @@ const debug = { errors: [] as string[], frames: 0 };
 window.addEventListener('error', (e) => debug.errors.push(String(e.message)));
 window.addEventListener('unhandledrejection', (e) => debug.errors.push(String(e.reason)));
 
-// ---------- three.js の基本 ----------
 const canvas = $<HTMLCanvasElement>('#scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.pixelRatio));
@@ -49,7 +48,6 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.3, 140000);
 camera.position.set(0, 400, 900);
-// 遠くほど霞む（大気の厚み）
 const HAZE = new THREE.Color(0xb4c6d6);
 scene.fog = new THREE.FogExp2(HAZE, 0.00005);
 
@@ -65,7 +63,6 @@ su.mieDirectionalG.value = 0.82;
 su.sunPosition.value.copy(sunDir);
 scene.add(sky);
 
-// 空の色を周りの映り込み（環境光）に使う
 const pmrem = new THREE.PMREMGenerator(renderer);
 const envScene = new THREE.Scene();
 const envSky = new Sky();
@@ -99,7 +96,6 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ---------- 状態 ----------
 const audio = new AudioEngine();
 const controls = new Controls($('#hud'));
 let screen: Screen = 'loading';
@@ -146,7 +142,11 @@ function setScreen(s: Screen) {
     if (route) scene.remove(route);
     route = null;
   }
-  if (s === 'hangar') updatePreview();
+  if (s === 'hangar') {
+    previewKey = '';
+    trail.clear();
+    updatePreview();
+  }
   if (s === 'title') void renderSummary();
 }
 
@@ -217,9 +217,7 @@ async function init() {
 }
 
 function renderTitle() {
-  const last = EVOLUTION_LOG[EVOLUTION_LOG.length - 1];
   $('#st-gen').textContent = String(GENERATION);
-  $('#generation').textContent = `第 ${GENERATION} 世代「${last.title}」（${last.date}）`;
   $('#evolution-list').innerHTML = [...EVOLUTION_LOG]
     .reverse()
     .map((e) => `<li><b>第${e.generation}世代「${escapeHtml(e.title)}」</b>（${e.date}）<br>${escapeHtml(e.summary)}</li>`)
@@ -230,7 +228,6 @@ async function renderSummary() {
   const s = await fetchSummary();
   const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n.toLocaleString());
   $('#st-pilots').textContent = s ? fmt(s.pilots) : '—';
-  $('#st-flights').textContent = s ? fmt(s.flights) : '—';
   $('#st-score').textContent = s ? fmt(s.totalScore) : '—';
 }
 
@@ -238,26 +235,63 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
-function placeModel(m: VehicleModel, x: number, z: number, model: string) {
-  m.group.position.set(x, world.terrainHeight(x, z), z);
-  m.group.rotation.order = 'YXZ';
-  if (model === 'rocket') m.group.rotation.x = Math.PI / 2;
-}
-
+// 格納庫では、選んだ機体が飛行場の上をゆっくり旋回して見せる（軌跡や色の変更がすぐ見える）
+let previewKey = '';
+let previewAngle = 0;
 function updatePreview() {
   if (!world) return;
-  if (previewModel) scene.remove(previewModel.group);
   const s = hangar.settings;
   const v = vehicleById(s.vehicle);
+  passengersOnBoard = s.passengers.map((id) => passengerById(id, hangar.custom)).filter((p): p is PassengerDef => !!p);
+  trail.setting = s.trail;
+  trail.baseWidth = Math.max(0.6, v.radius * 0.22);
+  const key = `${v.id}|${s.vehicleColor ?? ''}`;
+  if (previewModel && key === previewKey) return;
+  if (previewModel) scene.remove(previewModel.group);
+  if (!previewKey.startsWith(v.id + '|')) trail.clear();
+  previewKey = key;
   const m = buildVehicleModel(v.shape, s.vehicleColor ?? v.color);
-  const start = v.start === 'runway' ? RUNWAY_START : PAD;
-  placeModel(m, start.x, start.z, v.model);
+  m.group.rotation.order = 'YXZ';
   m.group.userData.radius = v.radius;
+  m.group.userData.model = v.model;
   previewModel = m;
   scene.add(m.group);
 }
 
-// ---------- フライト ----------
+function updateHangarPreview(dt: number) {
+  const m = previewModel!;
+  const r = Math.max(m.group.userData.radius as number, 1.2);
+  const kind = m.group.userData.model as string;
+  const R = kind === 'balloon' ? 30 : r * 9 + 25;
+  const speed = kind === 'balloon' ? 4 : kind === 'plane' ? 16 : 11;
+  previewAngle += (speed / R) * dt;
+  const cx = PAD.x - 60;
+  const cz = PAD.z - 120;
+  const ground = world.terrainHeight(cx, cz);
+  const y = ground + 18 + r * 2 + Math.sin(clock * 0.6) * 1.5;
+  const pos = new THREE.Vector3(cx + Math.cos(previewAngle) * R, y, cz + Math.sin(previewAngle) * R);
+  const yaw = Math.atan2(-Math.sin(previewAngle), -Math.cos(previewAngle));
+  const bank = kind === 'plane' ? 0.35 : kind === 'balloon' ? 0 : 0.12;
+  const pitch = kind === 'rocket' ? 0.15 : 0;
+  poseModel(m, pos, yaw, pitch, bank, 0.75, dt, false);
+  for (const fl of m.flames) {
+    const k = kind === 'balloon' ? (Math.sin(clock * 0.8) > 0.3 ? 0.5 : 0) : 0.7;
+    fl.visible = k > 0;
+    fl.scale.setScalar(0.4 + k * (0.8 + Math.random() * 0.3));
+  }
+  m.group.updateMatrixWorld();
+  const tail = m.tail.clone().applyMatrix4(m.group.matrixWorld);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(m.group.quaternion);
+  if (kind === 'rocket' || kind === 'balloon') right.set(Math.cos(yaw), 0, Math.sin(yaw));
+  const level = 0.35 + 0.25 * Math.sin(clock * 3);
+  trail.update(dt, tail, right, autoTrailColor(clock), level, true);
+  const d = r * 4 + 14;
+  const back = forward(yaw, 0);
+  const side = previewAngle + 0.5;
+  camera.position.set(pos.x - back.x * d * 0.6 + Math.cos(side) * d, y + r * 0.8 + 3, pos.z - back.z * d * 0.6 + Math.sin(side) * d);
+  camera.lookAt(pos.x, pos.y + r * 0.3, pos.z);
+}
+
 function startFlight() {
   const s = hangar.settings;
   audio.unlock();
@@ -271,8 +305,8 @@ function startFlight() {
   scene.add(model.group);
   passengersOnBoard = s.passengers.map((id) => passengerById(id, hangar.custom)).filter((p): p is PassengerDef => !!p);
   trail.clear();
-  trail.setting = { ...s.trail };
-  trail.baseWidth = Math.max(0.35, vehicle.radius * 0.12);
+  trail.setting = s.trail;
+  trail.baseWidth = Math.max(0.6, vehicle.radius * 0.22);
   explosion.clear();
   rings.set(
     mode.checkpoints.map((_, i) => {
@@ -416,7 +450,6 @@ function showResult() {
   rows.push(['残り燃料', `${Math.round(f.craft.fuel * 100)}%`]);
   $('#result-stats').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
   setScreen('result');
-  // リプレイと、飛んだ道すじ
   if (f.replay.length > 1) {
     replay.start(f.replay, f.outcome === 'crashed');
     replayExploded = false;
@@ -513,6 +546,8 @@ $('#btn-hangar').addEventListener('click', () => {
   setScreen('hangar');
 });
 $('#btn-back-title').addEventListener('click', () => setScreen('title'));
+$('#btn-evolution').addEventListener('click', () => $('#evolution').classList.remove('hidden'));
+$('#btn-evolution-close').addEventListener('click', () => $('#evolution').classList.add('hidden'));
 $('#btn-start').addEventListener('click', startFlight);
 $('#btn-retry').addEventListener('click', () => {
   if (model) scene.remove(model.group);
@@ -534,7 +569,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) togglePause(true);
 });
 
-// ---------- 毎フレーム ----------
 const tmpV = new THREE.Vector3();
 const camTarget = new THREE.Vector3();
 const camPos = new THREE.Vector3();
@@ -567,6 +601,8 @@ function frame(now: number) {
     }
   } else if (screen === 'result' && flight) {
     updateReplay(dt);
+  } else if (screen === 'hangar' && previewModel) {
+    updateHangarPreview(dt);
   } else if (screen === 'title' || screen === 'hangar') {
     updateAttractCamera();
   }
@@ -628,14 +664,13 @@ function updateFlightVisuals(dt: number) {
       fl.scale.setScalar(0.4 + k * (0.8 + Math.random() * 0.3));
     }
 
-    // 軌跡
     const g = model.group;
     g.updateMatrixWorld();
     const tail = model.tail.clone().applyMatrix4(g.matrixWorld);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(g.quaternion);
     if (v.model === 'rocket' || v.model === 'balloon') right.set(Math.cos(c.yaw), 0, Math.sin(c.yaw));
     const level = audio.passengerLevel();
-    const color = trail.setting.mode === 'custom' ? new THREE.Color(trail.setting.color) : autoTrailColor(clock);
+    const color = autoTrailColor(clock);
     color.offsetHSL(0, 0, level * 0.15);
     trail.update(dt, tail, right, color, level, f.phase === 'flying' && !c.onGround && model.group.visible);
   }
@@ -705,23 +740,11 @@ function updateFlightCamera(dt: number) {
 }
 
 function updateAttractCamera() {
-  if (screen === 'hangar' && previewModel) {
-    const p = previewModel.group.position;
-    const r = Math.max(previewModel.group.userData.radius as number, 1.5);
-    const a = clock * 0.18 + 2.2;
-    const d = r * 3.2 + 6;
-    // 画面の中央の空いたところに機体が来るよう、少し下から見上げる
-    camera.position.set(p.x + Math.sin(a) * d, p.y + r * 0.7 + 1.2, p.z + Math.cos(a) * d);
-    camera.lookAt(p.x, p.y + r * 0.45, p.z);
-    for (const s of previewModel.spinners) s.obj.rotation[s.axis] += s.speed * 0.05 * 0.016;
-    return;
-  }
   const a = clock * 0.03;
   camera.position.set(Math.sin(a) * 1300 - 100, 360, Math.cos(a) * 1300 + 200);
   camera.lookAt(0, 40, 100);
 }
 
-// ---------- 計器 ----------
 const DIR8 = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
 function dirName(rad: number) {
   const deg = ((THREE.MathUtils.radToDeg(rad) % 360) + 360) % 360;
@@ -763,7 +786,6 @@ function updateHud() {
   $('#hud-heading').textContent = `${String(Math.round(hdg) % 360).padStart(3, '0')}° ${dirName(c.yaw)}`;
   if (f.phase === 'flying' && c.stalled && messageTimer <= 0) showMessage('失速 ― 機首を下げて', 0.6);
 
-  // 場所と風は 4 回/秒で十分
   hudSlow -= 1;
   if (hudSlow <= 0) {
     hudSlow = 15;
@@ -775,7 +797,6 @@ function updateHud() {
     $('#hud-wind').textContent = ws < 0.3 ? '無風' : `${dirName(Math.atan2(-w.x, w.z))}から ${ws.toFixed(1)} m/s`;
   }
 
-  // 次の目標（リング → 一番近い風船）
   let target: { x: number; y: number; z: number } | null = null;
   let label = '';
   const cp = f.checkpointPosition(f.nextCheckpoint);
@@ -814,7 +835,6 @@ function updateHud() {
   }
 }
 
-// e2e テスト用の窓口
 (window as unknown as { __tf: unknown }).__tf = {
   debug,
   state: () => ({

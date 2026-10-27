@@ -70,7 +70,6 @@ export async function handleApi(req: Request, env: Env): Promise<Response> {
       return json({ elements: results.map((r) => ({ ...r, recipe: JSON.parse(r.recipe) })) });
     }
 
-    // タイトル画面に出す、みんなの合計
     if (path === '/api/summary' && req.method === 'GET') {
       const row = await env.DB.prepare(
         'SELECT COUNT(DISTINCT player_id) AS pilots, COUNT(*) AS flights, COALESCE(SUM(score), 0) AS total, COALESCE(SUM(distance_m), 0) AS distance FROM flights',

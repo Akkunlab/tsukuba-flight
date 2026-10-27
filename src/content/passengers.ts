@@ -22,7 +22,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'bees',
     name: 'ハチの群れ',
     icon: 'bee',
-    description: 'ブンブンブン。高く飛ぶほど羽音が高くなる。',
+    description: 'ブンブン。高いほど高い音。',
     trailColor: '#ffd21f',
     sound: {
       ...base,
@@ -42,7 +42,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'synth',
     name: 'シンセサイザー',
     icon: 'synth',
-    description: 'ピコピコ分散和音。速く飛ぶとテンポが上がる。',
+    description: 'ピコピコ。速いほど速いテンポ。',
     trailColor: '#d65bff',
     sound: {
       ...base,
@@ -62,7 +62,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'clarinet',
     name: 'クラリネット',
     icon: 'clarinet',
-    description: 'のんびりした旋律。奇数倍音のやわらかい音。',
+    description: 'のんびりした旋律。',
     trailColor: '#5fd38a',
     sound: {
       ...base,
@@ -86,7 +86,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'trumpet',
     name: 'ラッパ',
     icon: 'trumpet',
-    description: 'パッパカパーン！ チェックポイントの度に元気が出る。',
+    description: 'パッパカパーン！',
     trailColor: '#ff6a3d',
     sound: {
       ...base,
@@ -108,7 +108,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'cat',
     name: 'ねこ',
     icon: 'cat',
-    description: 'ときどき「にゃーん」。',
+    description: 'ときどき、にゃーん。',
     trailColor: '#ffb3c7',
     sound: {
       ...base,
@@ -130,7 +130,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'frogs',
     name: 'カエルの合唱',
     icon: 'frog',
-    description: '天久保池から乗ってきた。ゲコゲコ。',
+    description: 'ゲコゲコの合唱。',
     trailColor: '#7ccf3a',
     sound: {
       ...base,
@@ -153,7 +153,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'bell',
     name: '鐘',
     icon: 'bell',
-    description: 'キンコンカンコン。キャンパスの空に響く。',
+    description: 'キンコンカンコン。',
     trailColor: '#fff3a8',
     sound: {
       ...base,
@@ -173,7 +173,7 @@ export const PASSENGERS: PassengerDef[] = [
     id: 'wind-chime',
     name: '風鈴',
     icon: 'chime',
-    description: '速く飛ぶほど、ちりんちりん。',
+    description: '速いほど、ちりんちりん。',
     trailColor: '#a8e6ff',
     sound: {
       ...base,

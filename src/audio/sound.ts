@@ -142,7 +142,6 @@ export class RecipePlayer {
   }
 }
 
-/** エンジン音。種類ごとにノードの組み方を変える */
 class EngineSound {
   private ctx: AudioContext;
   private kind: EngineKind;
@@ -470,7 +469,6 @@ export class AudioEngine {
     }
   }
 
-  /** メニューでの試聴（数秒で止まる） */
   previewRecipe(r: SoundRecipe, seconds = 4) {
     this.unlock();
     if (!this.ctx) return;

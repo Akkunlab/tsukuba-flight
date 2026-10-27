@@ -24,18 +24,20 @@
         <div class="brand big"><span class="brand-en">TSUKUBA FLIGHT</span><span class="brand-ja">つくばフライト</span></div>
         <div class="tagline">筑波大学の空を、好きな乗り物と好きな音で。</div>
         <div class="stats-strip">
-          <div class="stat"><span class="k">GENERATION</span><span class="v" id="st-gen">1</span><span class="u">世代</span></div>
+          <button id="btn-evolution" class="stat"><span class="k">GENERATION</span><span class="v" id="st-gen">1</span><span class="u">世代</span></button>
           <div class="stat"><span class="k">PILOTS</span><span class="v" id="st-pilots">—</span><span class="u">人</span></div>
-          <div class="stat"><span class="k">FLIGHTS</span><span class="v" id="st-flights">—</span><span class="u">回</span></div>
           <div class="stat"><span class="k">TOTAL SCORE</span><span class="v" id="st-score">—</span><span class="u">点</span></div>
         </div>
-        <div id="generation" class="generation"></div>
         <button id="btn-hangar" class="primary big-btn">格納庫へ</button>
-        <details class="evolution">
-          <summary>このゲームの進化の記録</summary>
-          <ol id="evolution-list" reversed></ol>
-        </details>
-        <p class="note">プレイの記録（選んだ乗り物・飛行時間など）は匿名でサーバーに保存され、次の世代のゲームづくりに使われます。名前やメールアドレスなどは集めません。</p>
+        <p class="note">プレイの記録は匿名で保存され、次の世代のゲームづくりに使われます。</p>
+      </div>
+    </div>
+
+    <div id="evolution" class="screen hidden modal">
+      <div class="result-box panel">
+        <h2><span class="k">EVOLUTION</span>進化の記録</h2>
+        <ol id="evolution-list" class="evo-list" reversed></ol>
+        <button id="btn-evolution-close" class="ghost">閉じる</button>
       </div>
     </div>
 

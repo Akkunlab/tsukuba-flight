@@ -26,18 +26,14 @@ UA = "tsukuba-flight-data-fetch/0.1 (+https://github.com/Akkunlab/tsukuba-flight
 
 # ワールド原点（筑波大学の中ほど）。x = 東 [m]、z = 南 [m]（three.js の -z が北）
 ORIGIN_LAT, ORIGIN_LON = 36.106, 140.102
-# 近景（キャンパス）
 NEAR = dict(south=36.082, north=36.130, west=140.080, east=140.124)
-# 遠景（筑波山まで入る広さ）
 FAR = dict(south=35.98, north=36.26, west=139.94, east=140.27)
 
 M_PER_DEG_LAT = 110_950.0
 M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(ORIGIN_LAT))
 
-
 def to_xz(lat, lon):
     return ((lon - ORIGIN_LON) * M_PER_DEG_LON, -(lat - ORIGIN_LAT) * M_PER_DEG_LAT)
-
 
 def tile_xy(lat, lon, z):
     n = 2 ** z
@@ -45,13 +41,11 @@ def tile_xy(lat, lon, z):
     y = (1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n
     return x, y
 
-
 def tile_to_latlon(x, y, z):
     n = 2 ** z
     lon = x / n * 360.0 - 180.0
     lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y / n))))
     return lat, lon
-
 
 def fetch(url, cache_name):
     path = os.path.join(CACHE, cache_name)
@@ -78,7 +72,6 @@ def fetch(url, cache_name):
         f.write(data)
     time.sleep(0.05)
     return data
-
 
 def mosaic(layer, ext, z, bbox):
     """bbox を覆うタイルを結合し、(画像, bboxにぴったり切り出したピクセル範囲) を返す。"""
@@ -108,7 +101,6 @@ def mosaic(layer, ext, z, bbox):
     )
     return img.crop(crop)
 
-
 def dem_grid(z, bbox, size):
     """dem_png を数値標高 [m] のグリッド (size x size) にする。無効値は周囲の平均で埋める。"""
     img = mosaic("dem_png", "png", z, bbox)
@@ -122,7 +114,6 @@ def dem_grid(z, bbox, size):
     im = Image.fromarray(v.astype(np.float32), mode="F").resize((size, size), Image.BILINEAR)
     return np.asarray(im)
 
-
 def save_photo(layer_z, bbox, name, max_px):
     img = mosaic("seamlessphoto", "jpg", layer_z, bbox)
     s = min(1.0, max_px / max(img.size))
@@ -131,12 +122,10 @@ def save_photo(layer_z, bbox, name, max_px):
     img.save(os.path.join(OUT, name), quality=82, optimize=True, progressive=True)
     print(f"{name}: {img.size}", file=sys.stderr)
 
-
 def bbox_meters(b):
     x0, z0 = to_xz(b["north"], b["west"])
     x1, z1 = to_xz(b["south"], b["east"])
     return dict(minX=round(x0, 1), maxX=round(x1, 1), minZ=round(z0, 1), maxZ=round(z1, 1))
-
 
 def overpass(query):
     path = os.path.join(ROOT, ".cache", "osm.json")
@@ -164,7 +153,6 @@ def overpass(query):
         json.dump(data, f)
     return data
 
-
 def building_height(tags):
     h = tags.get("height") or tags.get("building:height")
     if h:
@@ -182,7 +170,6 @@ def building_height(tags):
     return {"house": 7, "detached": 7, "garage": 3.5, "shed": 3, "roof": 4,
             "apartments": 13, "university": 14, "school": 12, "dormitory": 13,
             "hospital": 25, "commercial": 12, "retail": 8, "industrial": 9}.get(kind, 9)
-
 
 def build_osm():
     b = NEAR
@@ -213,7 +200,6 @@ out geom tags;
             name = tags.get("name")
             if name:
                 item["n"] = name
-            # 見た目用の属性（種類・階数・壁と屋根の色・屋根の形）
             kind = tags.get("building", "yes")
             if kind != "yes":
                 item["t"] = kind
@@ -233,7 +219,6 @@ out geom tags;
             cz = sum(p[1] for p in poly) / len(poly)
             named.append({"n": tags["name"], "x": round(cx), "z": round(cz)})
     return {"buildings": buildings, "woods": woods, "water": water, "named": named}
-
 
 def main():
     os.makedirs(OUT, exist_ok=True)
@@ -256,7 +241,6 @@ def main():
         json.dump(world, f, ensure_ascii=False, separators=(",", ":"))
     print(f"buildings={len(osm['buildings'])} woods={len(osm['woods'])} water={len(osm['water'])} "
           f"named={len(osm['named'])}", file=sys.stderr)
-
 
 if __name__ == "__main__":
     main()

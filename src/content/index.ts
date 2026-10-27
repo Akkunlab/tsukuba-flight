@@ -10,7 +10,6 @@ export { VEHICLES, FUELS, PASSENGERS, MODES, SCENERY };
 export const EVOLUTION_LOG = evolutionLog as EvolutionEntry[];
 export const GENERATION = Math.max(...EVOLUTION_LOG.map((e) => e.generation));
 
-/** 1 回のフライトで乗せられる搭乗者の数 */
 export const MAX_PASSENGERS = 3;
 
 export function vehicleById(id: string): VehicleDef {

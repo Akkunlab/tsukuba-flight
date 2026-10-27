@@ -1,14 +1,11 @@
 // 乗り物の 3D モデル（プリミティブの組み合わせ、PBR マテリアル）。前が -z、上が +y、原点は機体の一番下。
-// 新しい乗り物の見た目を足すときは SHAPES にビルダーを追加する。
 import * as THREE from 'three';
 
 export interface VehicleModel {
   group: THREE.Group;
-  /** 回転させる部品（プロペラなど）と回転軸 */
   spinners: { obj: THREE.Object3D; axis: 'x' | 'y' | 'z'; speed: number }[];
   /** 回転が速いときに見える残像の円盤 */
   discs: THREE.Mesh[];
-  /** スロットルで大きさが変わる炎 */
   flames: THREE.Object3D[];
   /** 軌跡が出る位置（ローカル座標） */
   tail: THREE.Vector3;
@@ -71,7 +68,6 @@ function flame(radius: number, length: number, color = 0xffa030) {
   return g;
 }
 
-/** 機体に貼る登録記号（JA で始まる架空の番号） */
 function registration(text: string, color = '#1d2a3a') {
   const c = document.createElement('canvas');
   c.width = 512;
@@ -104,7 +100,6 @@ function canvasTexture(w: number, h: number, draw: (g: CanvasRenderingContext2D)
 type Builder = (color: string) => VehicleModel;
 
 const SHAPES: Record<string, Builder> = {
-  // 高翼の 4 人乗り単発機（全長 8.3m・翼幅 11m）
   prop(color) {
     const g = new THREE.Group();
     const paint = std(color, 0.32, 0.05, { envMapIntensity: 1.2 });
@@ -118,7 +113,6 @@ const SHAPES: Record<string, Builder> = {
     );
     body.scale.set(1, 1.18, 1);
     g.add(body);
-    // 胴体のライン
     for (const s of [-1, 1]) {
       const stripe = mesh(new THREE.BoxGeometry(0.02, 0.12, 6.4), accent, s * 0.7, 1.3, -0.6);
       stripe.rotation.x = 0.03;
@@ -128,10 +122,8 @@ const SHAPES: Record<string, Builder> = {
       reg.rotation.y = s * Math.PI / 2;
       g.add(reg);
     }
-    // 窓
     const cabin = mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.66, 0.5, 1.45), glass(), 0, 1.9, -1.35);
     g.add(cabin);
-    // 主翼（高翼）と支柱
     const w = mesh(wing([[-5.5, -0.75], [5.5, -0.75], [5.5, 0.65], [-5.5, 0.65]], 0.12), paint, 0, 2.4, -1.15);
     g.add(w);
     for (const s of [-1, 1]) {
@@ -140,13 +132,11 @@ const SHAPES: Record<string, Builder> = {
       strut.rotation.z = s * -1.05;
       g.add(strut);
     }
-    // 尾翼
     g.add(mesh(wing([[-1.7, -0.35], [1.7, -0.35], [1.4, 0.5], [-1.4, 0.5]], 0.07), paint, 0, 1.55, 3.55));
     const fin = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(1.5, 0), new THREE.Vector2(1.3, 1.6), new THREE.Vector2(0.6, 1.6)]);
     const finMesh = mesh(new THREE.ExtrudeGeometry(fin, { depth: 0.07, bevelEnabled: false }).rotateY(-Math.PI / 2).translate(0.035, 0, 0), paint, 0, 1.6, 2.6);
     g.add(finMesh);
     g.add(mesh(new THREE.BoxGeometry(0.075, 0.3, 0.6), accent, 0, 2.9, 3.85));
-    // 脚
     for (const s of [-1, 1]) {
       const leg = mesh(new THREE.BoxGeometry(0.06, 1.05, 0.12), metal(0xe0e0e0), s * 0.95, 0.75, -0.6);
       leg.rotation.z = s * 0.55;
@@ -160,7 +150,6 @@ const SHAPES: Record<string, Builder> = {
     const nw = wheel(0.24, 0.12);
     nw.position.set(0, 0.24, -3.4);
     g.add(nw);
-    // プロペラ
     const prop = new THREE.Group();
     prop.position.set(0, 1.45, -4.35);
     prop.add(mesh(new THREE.ConeGeometry(0.22, 0.5, 16).rotateX(-Math.PI / 2), paint, 0, 0, -0.1));
@@ -177,7 +166,6 @@ const SHAPES: Record<string, Builder> = {
     return { group: g, spinners: [{ obj: prop, axis: 'z', speed: 60 }], discs: [d], flames: [], tail: new THREE.Vector3(0, 1.6, 4) };
   },
 
-  // 人力飛行機（翼幅 25m、透明フィルム張り）
   birdman(color) {
     const g = new THREE.Group();
     const film = new THREE.MeshPhysicalMaterial({ color, roughness: 0.15, transmission: 0, transparent: true, opacity: 0.55, side: THREE.DoubleSide, clearcoat: 0.6 });
@@ -185,10 +173,8 @@ const SHAPES: Record<string, Builder> = {
     const w = mesh(wing([[-12.5, -0.45], [12.5, -0.3], [12.5, 0.4], [-12.5, 0.4]], 0.14), film, 0, 3.4, 0);
     w.castShadow = true;
     g.add(w);
-    // 翼のリブと桁
     g.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 25, 8).rotateZ(Math.PI / 2), carbon, 0, 3.47, -0.1));
     for (let x = -12; x <= 12; x += 1.5) g.add(mesh(new THREE.BoxGeometry(0.03, 0.16, 0.86), carbon, x, 3.47, 0.04));
-    // 胴体（ポッド）とパイロット
     const pod = mesh(lathe([[0.05, -1.6], [0.45, -1.2], [0.6, -0.3], [0.55, 0.6], [0.25, 1.4], [0.08, 1.8]]), film, 0, 1.6, 0);
     pod.scale.set(0.8, 1.5, 1);
     g.add(pod);
@@ -198,7 +184,6 @@ const SHAPES: Record<string, Builder> = {
     pilot.add(mesh(new THREE.CapsuleGeometry(0.17, 0.45, 4, 8), std(0x2f6fb5, 0.8), 0, 1.65, 0.05));
     g.add(pilot);
     g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.9, 6), carbon, 0, 2.5, 0));
-    // 尾部のブームと尾翼
     g.add(mesh(new THREE.CylinderGeometry(0.06, 0.04, 6.5, 8).rotateX(Math.PI / 2), carbon, 0, 2.3, 4.3));
     g.add(mesh(wing([[-2, -0.3], [2, -0.3], [2, 0.3], [-2, 0.3]], 0.06), film, 0, 2.3, 7.3));
     const fin = mesh(new THREE.BoxGeometry(0.04, 1.4, 0.7), film, 0, 2.9, 7.3);
@@ -207,7 +192,6 @@ const SHAPES: Record<string, Builder> = {
     wl.position.set(0, 0.25, 0.2);
     g.add(wl);
     g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), carbon, 0, 0.7, 0.2));
-    // 大きな前のプロペラ
     const prop = new THREE.Group();
     prop.position.set(0, 1.9, -1.75);
     for (const s of [-1, 1]) {
@@ -225,7 +209,6 @@ const SHAPES: Record<string, Builder> = {
   paper(color) {
     const g = new THREE.Group();
     const geo = new THREE.BufferGeometry();
-    // 折り紙の紙飛行機：中央の折り目と左右の翼
     const v = [0, 1, -4, -3.2, 1.6, 3, 0, 1, 3, 0, 1, -4, 0, 1, 3, 3.2, 1.6, 3, 0, 1, -4, 0, 0.2, 3, 0, 1, 3];
     geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
     geo.computeVertexNormals();
@@ -243,7 +226,6 @@ const SHAPES: Record<string, Builder> = {
     const uv = [0.5, 0, 0, 1, 0.5, 1, 0.5, 0, 0.5, 1, 1, 1, 0.5, 0, 0.6, 1, 0.5, 1];
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.add(mesh(geo, std(color, 0.95, 0, { side: THREE.DoubleSide, map: paperTex })));
-    // 後ろの送風機
     const fan = new THREE.Group();
     fan.position.set(0, 1.0, 3.3);
     g.add(mesh(new THREE.TorusGeometry(0.45, 0.05, 8, 24), std(0x3a6fb0, 0.5), 0, 1.0, 3.3));
@@ -262,7 +244,6 @@ const SHAPES: Record<string, Builder> = {
     const body = std(color, 0.45, 0.2);
     g.add(mesh(new THREE.BoxGeometry(0.42, 0.16, 0.7), body, 0, 0.42, 0));
     g.add(mesh(new THREE.SphereGeometry(0.22, 16, 10).scale(1, 0.55, 1.6), body, 0, 0.5, 0));
-    // ジンバルとカメラ
     g.add(mesh(new THREE.BoxGeometry(0.1, 0.08, 0.1), metal(0x555555), 0, 0.3, -0.28));
     g.add(mesh(new THREE.SphereGeometry(0.07, 12, 8), glass(), 0, 0.26, -0.33));
     const spinners: VehicleModel['spinners'] = [];
@@ -317,7 +298,6 @@ const SHAPES: Record<string, Builder> = {
     }, 2);
     const futon = std(0xffffff, 0.95, 0, { map: futonTex });
     const wood = std(0x9c6b3e, 0.55);
-    // 布団（少しふくらんだ箱）
     const f = mesh(new THREE.BoxGeometry(2.4, 0.55, 2.4, 6, 2, 6), futon, 0, 0.42, 0);
     const p = f.geometry.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i++) {
@@ -330,13 +310,11 @@ const SHAPES: Record<string, Builder> = {
     g.add(f);
     g.add(mesh(new THREE.BoxGeometry(1.8, 0.06, 1.8), wood, 0, 0.73, 0));
     g.add(mesh(new THREE.BoxGeometry(1.84, 0.02, 1.84), std(0x6b4423, 0.45), 0, 0.7, 0));
-    // みかん
     g.add(mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.1, 20), std(0xc9a46a, 0.8), 0.25, 0.81, 0.15));
     for (const [x, z] of [[0.2, 0.1], [0.33, 0.22], [0.2, 0.3], [0.32, 0.05]]) {
       g.add(mesh(new THREE.SphereGeometry(0.11, 14, 10).scale(1, 0.85, 1), std(0xff8a1a, 0.6), x, 0.92, z));
     }
     g.add(mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 12), std(0x3d6a4a, 0.4), -0.4, 0.82, -0.3));
-    // 底のファン
     const spinners: VehicleModel['spinners'] = [];
     const discs: THREE.Mesh[] = [];
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
@@ -364,7 +342,6 @@ const SHAPES: Record<string, Builder> = {
     g.add(mesh(new THREE.CylinderGeometry(1.12, 1.12, 0.8, 24).rotateX(Math.PI / 2), std(0x1a1a1a, 0.5), 0, 0, -9));
     g.add(mesh(new THREE.CylinderGeometry(1.12, 1.12, 0.3, 24).rotateX(Math.PI / 2), accent, 0, 0, -3));
     g.add(mesh(lathe([[0.45, -0.9], [0.6, -0.4], [0.95, 0.3]], 20), metal(0x6a6a6a, 0.3), 0, 0, 0));
-    // 尾翼：外側ほど後ろに流れた台形（y = 胴体から外向き、z = 前後）
     const finShape = new THREE.Shape([new THREE.Vector2(0, -3.2), new THREE.Vector2(0, 0.2), new THREE.Vector2(1.9, 0.6), new THREE.Vector2(1.9, -1.0)]);
     const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.1, bevelEnabled: false });
     // 押し出しは (x = 外向き, y = 前後, z = 厚み) なので、(厚み, 外向き, 前後) に並べ替える
@@ -417,7 +394,6 @@ const SHAPES: Record<string, Builder> = {
       const band = y > 2.5 && y < 4;
       const c = band ? c2 : gore ? a : b;
       colors.push(c.r, c.g, c.b);
-      // 下側をすぼめて気球の形に
       if (y < 0) {
         const k = 1 + (y / 8) * 0.62;
         pos.setX(i, pos.getX(i) * k);
@@ -441,7 +417,6 @@ const SHAPES: Record<string, Builder> = {
     }, 2);
     g.add(mesh(new THREE.BoxGeometry(1.6, 1.1, 1.6), std(0xffffff, 0.9, 0, { map: wicker }), 0, 0.55, 0));
     g.add(mesh(new THREE.BoxGeometry(1.7, 0.1, 1.7), std(0x5a3a1a, 0.7), 0, 1.12, 0));
-    // バーナーの枠とロープ
     g.add(mesh(new THREE.BoxGeometry(1.0, 0.06, 1.0), metal(), 0, 2.4, 0));
     g.add(mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.45, 12), metal(0x8a8a8a, 0.3), 0, 2.2, 0));
     const rope = new THREE.LineBasicMaterial({ color: 0x2b2b2b });

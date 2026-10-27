@@ -23,22 +23,16 @@ export interface Craft {
   vel: Vec3;
   /** 向き。yaw=0 で北（-z）を向く。右回りで増える */
   yaw: number;
-  /** 機首の上下（+ が上） */
   pitch: number;
-  /** 傾き（+ が右に傾く） */
   roll: number;
-  /** 前向きの速さ（plane / hover） */
   speed: number;
-  /** 残り燃料 0..1 */
   fuel: number;
   throttle: number;
   onGround: boolean;
-  /** 熱気球の温度 0..1 */
   heat: number;
   /** plane の失速による沈み込み [m/s] */
   sink: number;
   stalled: boolean;
-  /** plane の離陸直後の自動上昇中か */
   climbOut: boolean;
 }
 
@@ -68,7 +62,6 @@ export function createCraft(v: VehicleDef, pos: Vec3, yaw: number): Craft {
 const ease = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * Math.min(1, rate * dt);
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
-/** 燃料の消費。throttle 0 でも少しずつ減る */
 export function burnFuel(c: Craft, v: VehicleDef, f: FuelDef, dt: number) {
   const use = v.fuelUse * (0.15 + 0.85 * c.throttle) * dt;
   c.fuel = Math.max(0, c.fuel - use / (TANK * f.capacity));
@@ -105,11 +98,9 @@ function stepPlane(c: Craft, v: VehicleDef, power: number, input: Input, wind: V
   const lift = clamp((c.speed / v.takeoffSpeed) ** 2, 0, 1);
   if (c.onGround) {
     c.roll = ease(c.roll, 0, 6, dt);
-    // 地上では左右で向きを変えられる（タキシング）
     c.yaw += input.x * 0.6 * Math.min(1, c.speed / 8) * dt;
     const canRotate = c.speed >= v.takeoffSpeed;
-    // 離陸速度に達したら自動で少し機首を上げる（操作が簡単になるように）
-    // （着陸後の減速中はスロットルを絞っているので、勝手に浮き上がらない）
+    // 離陸速度で自動的に機首を上げる。着陸後の減速中はスロットルが低いので浮き上がらない
     const assist = c.throttle > 0.5 ? 0.12 : 0;
     c.pitch = ease(c.pitch, canRotate ? Math.max(assist, input.y * 0.35) : 0, 3, dt);
     c.climbOut = canRotate && assist > 0;

@@ -18,9 +18,7 @@ const stats = existsSync('evolution/stats.json') ? JSON.parse(readFileSync('evol
 const weights = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.weight]));
 if (stats && stats.totalFlights > 0) {
   const crashes = Object.values(stats.byVehicle ?? {}).reduce((a, g) => a + (g.outcomes?.crashed ?? 0), 0);
-  // 墜落が半分を超えるなら調整を出やすくする
   if (crashes / stats.totalFlights > 0.5) weights.tuning += 3;
-  // 搭乗者がよく選ばれているなら音を増やす
   if ((stats.avgPassengers ?? 0) > 1.5) weights.passenger += 2;
   if ((stats.customElements?.total ?? 0) > 3) weights.sound += 2;
 }

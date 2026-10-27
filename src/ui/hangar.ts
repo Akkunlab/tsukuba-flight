@@ -14,7 +14,8 @@ function esc(s: string) {
 }
 
 const STEPS = 16;
-const LEVELS = 13; // 0..12 半音、それより下は休符
+/** 0..12 半音。それより下は休符 */
+const LEVELS = 13;
 
 type Tab = 'mission' | 'vehicle' | 'fuel' | 'passenger' | 'trail' | 'settings';
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -26,7 +27,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'settings', label: '設定', icon: 'sliders' },
 ];
 
-const MODEL_LABEL = { plane: '滑走路から離陸', hover: 'その場で浮く', rocket: '垂直に打ち上げ', balloon: '風まかせ' } as const;
+const MODEL_LABEL = { plane: '滑走路から', hover: 'その場で浮く', rocket: '打ち上げ', balloon: '風まかせ' } as const;
 
 /** 巡航（スロットル 6 割）で飛べるおよその時間 [秒] */
 export function endurance(v: VehicleDef, f: FuelDef): number {
@@ -83,7 +84,7 @@ export class Hangar {
     $('#btn-new-passenger').classList.toggle('hidden', this.tab !== 'passenger');
     switch (this.tab) {
       case 'mission':
-        this.renderList(list, MODES, (m) => m.id === this.settings.mode, (m) => ({ icon: m.icon, name: m.name, sub: m.objective }), (m) => (this.settings.mode = m.id));
+        this.renderList(list, MODES, (m) => m.id === this.settings.mode, (m) => ({ icon: m.icon, name: m.name, sub: m.description }), (m) => (this.settings.mode = m.id));
         detail.innerHTML = this.missionDetail(modeById(this.settings.mode));
         break;
       case 'vehicle':
@@ -108,7 +109,7 @@ export class Hangar {
           list,
           this.allPassengers(),
           (p) => s.passengers.includes(p.id),
-          (p) => ({ icon: p.icon, name: p.name, sub: 'custom' in p ? 'じぶん作 ・ 選ぶと編集' : p.description, check: true }),
+          (p) => ({ icon: p.icon, name: p.name, sub: 'custom' in p ? 'じぶん作' : p.description, check: true }),
           (p) => {
             if ('custom' in p && s.passengers.includes(p.id)) {
               this.openEditor(p as CustomPassenger);
@@ -178,53 +179,30 @@ export class Hangar {
 
   private missionDetail(m: ModeDef): string {
     const best = loadBest()[m.id];
-    const rules: [string, string][] = [
-      ['制限時間', m.timeLimit > 0 ? `${Math.floor(m.timeLimit / 60)} 分` : 'なし'],
-      ['風', m.wind >= 6 ? `強い（${m.wind} m/s）` : m.wind >= 2 ? `ややあり（${m.wind} m/s）` : `穏やか（${m.wind} m/s）`],
-    ];
-    if (m.checkpoints.length) rules.push(['リング', `${m.checkpoints.length} 個（順番にくぐる）`]);
-    if (m.targets) rules.push(['風船', `${m.targets.count} 個（体当たりで割る）`]);
-    rules.push(['得点', this.scoreRule(m)]);
-    if (best) rules.push(['自己ベスト', `${best.toLocaleString()} 点`]);
-    const route = m.checkpoints.length ? `<div class="subhead">ルート</div><ol class="rules">${m.checkpoints.map((c) => `<li><span>${esc(c.name)}</span><span class="mono">${c.alt} m</span></li>`).join('')}</ol>` : '';
+    const facts: [string, string][] = [['制限時間', m.timeLimit > 0 ? `${Math.floor(m.timeLimit / 60)} 分` : 'なし']];
+    if (best) facts.push(['自己ベスト', `${best.toLocaleString()} 点`]);
     return `<div class="detail panel">
-      <div class="k">MISSION BRIEFING</div>
       <h3>${icon(m.icon)}${esc(m.name)}</h3>
       <div class="brief"><div class="k">OBJECTIVE</div><div class="obj">${esc(m.objective)}</div></div>
       <p>${esc(m.description)}</p>
-      <ul class="rules">${rules.map(([k, v]) => `<li><span>${k}</span><span>${esc(v)}</span></li>`).join('')}</ul>
-      ${route}
-      <p class="subhead">建物・森・地面にぶつかる、燃料が切れる、エリアの外に出ると終わり。最後に着陸できるとボーナス。</p>
+      ${this.facts(facts)}
     </div>`;
   }
 
-  private scoreRule(m: ModeDef): string {
-    const parts = ['距離'];
-    if (m.checkpoints.length) parts.push('リング 1 個 500 点');
-    if (m.targets) parts.push('風船 1 個 300 点');
-    parts.push('着陸 1500 点');
-    return parts.join(' ＋ ');
+  private facts(rows: [string, string][]) {
+    return `<ul class="rules">${rows.map(([k, v]) => `<li><span>${k}</span><span>${esc(v)}</span></li>`).join('')}</ul>`;
   }
 
   private vehicleDetail(v: VehicleDef): string {
     const f = fuelById(this.settings.fuel);
-    const climb = v.model === 'rocket' ? v.accel / 1.5 : v.model === 'plane' ? v.climbRate : v.climbRate * 1.3;
     return `<div class="detail panel">
-      <div class="k">AIRCRAFT</div>
       <h3>${icon(v.icon)}${esc(v.name)}</h3>
       <p>${esc(v.description)}</p>
       <div class="spec">
-        ${meter('最高速度', v.maxSpeed / 160, `${Math.round(v.maxSpeed * 3.6)}`)}
-        ${meter('機動性', v.turnRate / 2.2, `${v.turnRate.toFixed(1)}`)}
-        ${meter('上昇力', climb / 15, `${Math.round(climb)}`)}
-        ${meter('航続時間', endurance(v, f) / 900, minutes(endurance(v, f)).replace('約 ', ''))}
+        ${meter('速さ', v.maxSpeed / 160, `${Math.round(v.maxSpeed * 3.6)} km/h`)}
+        ${meter('小回り', v.turnRate / 2.2, '')}
+        ${meter('航続', endurance(v, f) / 900, minutes(endurance(v, f)).replace('約 ', ''))}
       </div>
-      <ul class="rules">
-        <li><span>出発</span><span>${v.start === 'runway' ? '滑走路' : '発射台'}</span></li>
-        <li><span>飛び方</span><span>${MODEL_LABEL[v.model]}</span></li>
-        ${v.model === 'plane' ? `<li><span>離陸速度</span><span class="mono">${Math.round(v.takeoffSpeed * 3.6)} km/h</span></li>` : ''}
-        <li><span>大きさ</span><span class="mono">${(v.radius * 2).toFixed(1)} m</span></li>
-      </ul>
       <div class="row-inline">機体の色 <input type="color" id="vehicle-color" value="${this.settings.vehicleColor ?? v.color}" /> <button id="vehicle-color-reset" class="ghost small">元に戻す</button></div>
     </div>`;
   }
@@ -242,42 +220,32 @@ export class Hangar {
 
   private fuelDetail(f: FuelDef, v: VehicleDef): string {
     return `<div class="detail panel">
-      <div class="k">FUEL</div>
       <h3>${icon(f.icon)}${esc(f.name)}</h3>
       <p>${esc(f.description)}</p>
       <div class="spec">
-        ${meter('容量', f.capacity / 2, `×${f.capacity}`)}
-        ${meter('出力', f.power / 1.5, `×${f.power}`)}
-        ${meter(`${esc(v.name)}で`, endurance(v, f) / 900, minutes(endurance(v, f)).replace('約 ', ''))}
+        ${meter('パワー', f.power / 1.5, '')}
+        ${meter('航続', endurance(v, f) / 900, minutes(endurance(v, f)).replace('約 ', ''))}
       </div>
-      <div class="row-inline">軌跡の色（おまかせのとき） <span style="display:inline-block;width:40px;height:10px;background:${f.trailColor}"></span></div>
     </div>`;
   }
 
   private passengerDetail(): string {
-    const s = this.settings;
-    const ps = s.passengers.map((id) => this.allPassengers().find((p) => p.id === id)).filter(Boolean) as PassengerDef[];
+    const n = this.settings.passengers.length;
     return `<div class="detail panel">
-      <div class="k">PASSENGERS ${ps.length}/${MAX_PASSENGERS}</div>
-      <h3>${icon('note')}一緒に乗せる</h3>
-      <p>乗せた搭乗者は、飛んでいる間ずっと音を鳴らす。高く飛ぶと音程が上がり、速く飛ぶとテンポが上がるものもある。音の大きさで軌跡の太さが変わる。</p>
-      <ul class="rules">${ps.length ? ps.map((p) => `<li><span>${esc(p.name)}</span><span>${esc('custom' in p ? 'じぶん作' : '')}</span></li>`).join('') : '<li><span>だれも乗せない</span><span></span></li>'}</ul>
-      <p class="subhead">「自分で音をつくる」から、音色とメロディを決めた搭乗者をつくれる（いまは自分だけが使える）。</p>
+      <h3>${icon('note')}搭乗者 ${n}/${MAX_PASSENGERS}</h3>
+      <p>乗せると、飛んでいる間その音が鳴る。</p>
     </div>`;
   }
 
   private trailDetail(): string {
     const t = this.settings.trail;
     return `<div class="detail panel">
-      <div class="k">TRAIL</div>
       <h3>${icon('palette')}軌跡</h3>
-      <div class="subhead">色</div>
       <div class="opts" id="trail-mode">
-        <button data-v="auto" class="${t.mode === 'auto' ? 'on' : ''}">おまかせ（燃料と音で変わる）</button>
+        <button data-v="auto" class="${t.mode === 'auto' ? 'on' : ''}">おまかせ</button>
         <button data-v="custom" class="${t.mode === 'custom' ? 'on' : ''}">自分で選ぶ</button>
         <input type="color" id="trail-color" value="${t.color}" />
       </div>
-      <div class="subhead">形</div>
       <div class="opts" id="trail-style">
         <button data-v="ribbon" class="${t.style === 'ribbon' ? 'on' : ''}">リボン</button>
         <button data-v="rainbow" class="${t.style === 'rainbow' ? 'on' : ''}">虹</button>
@@ -311,18 +279,15 @@ export class Hangar {
   private settingsDetail(): string {
     const v = this.settings.volumes;
     return `<div class="detail panel">
-      <div class="k">SETTINGS</div>
-      <h3>${icon('sliders')}音量</h3>
+      <h3>${icon('sliders')}設定</h3>
       <div class="vol">全体 <input type="range" id="vol-master" min="0" max="1" step="0.05" value="${v.master}" /></div>
       <div class="vol">エンジン <input type="range" id="vol-engine" min="0" max="1" step="0.05" value="${v.engine}" /></div>
       <div class="vol">搭乗者 <input type="range" id="vol-passengers" min="0" max="1" step="0.05" value="${v.passengers}" /></div>
-      <div class="subhead">操作</div>
-      <ul class="rules">
-        <li><span>パソコン</span><span>矢印キー 操縦 ／ W・S スロットル ／ C カメラ</span></li>
-        <li><span>スマホ</span><span>左でスティック ／ 右のバーでスロットル</span></li>
-        <li><span>ゲームパッド</span><span>左スティック ／ トリガー</span></li>
-      </ul>
-      <p class="subhead">地形・航空写真: 国土地理院 ／ 建物・森: © OpenStreetMap contributors ／ 滑走路は架空です</p>
+      ${this.facts([
+        ['パソコン', '矢印キー ／ W・S ／ C'],
+        ['スマホ', '左スティック ／ 右バー'],
+      ])}
+      <p class="subhead">地図: 国土地理院 ／ © OpenStreetMap contributors</p>
     </div>`;
   }
 
@@ -350,8 +315,6 @@ export class Hangar {
       slot('FUEL', f.icon, f.name) +
       slot('PAX', ps[0]?.icon ?? 'note', ps.length ? ps.map((p) => p.name).join('・') : 'なし');
   }
-
-  // ---- 音をつくるエディタ ----
 
   private bindEditor() {
     const grid = $('#ed-icon');

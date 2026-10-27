@@ -1,9 +1,6 @@
 // ゲームの「要素」の型。乗り物・燃料・搭乗者・モード・景色はすべてここの型に沿ったデータで増やせる。
-// 新しい要素を足すときは src/content/*.ts の配列に 1 件追加するだけで、メニュー・物理・音・テストに自動で乗る。
 
-/** 音のレシピ。搭乗者の音・ユーザーが作る音はすべてこの形で表す（Web Audio で合成する）。 */
 export interface SoundRecipe {
-  /** 波形。noise はホワイトノイズ */
   wave: 'sine' | 'square' | 'sawtooth' | 'triangle' | 'noise';
   /** 基準の音の高さ [Hz] */
   base: number;
@@ -15,18 +12,15 @@ export interface SoundRecipe {
   gate: number;
   attack: number;
   release: number;
-  /** ローパスフィルタ [Hz] */
   filter: number;
   vibratoHz: number;
   /** ビブラートの深さ [半音] */
   vibratoDepth: number;
-  /** 同時に鳴らす声の数（ハチの群れなど） */
   voices: number;
   /** 声どうしのずれ [cent] */
   detune: number;
   /** 音程を滑らかにつなぐ時間 [秒] */
   glide: number;
-  /** 音量 (0..1) */
   gain: number;
   /** 倍音の強さ（指定するとこの倍音構成の波形になる。クラリネットなら奇数倍音） */
   harmonics?: number[];
@@ -34,10 +28,8 @@ export interface SoundRecipe {
   follow?: { altitude?: number; speed?: number };
 }
 
-/** エンジン音の種類。audio/engine.ts に合成の実装がある */
 export type EngineKind = 'jet' | 'prop' | 'rotor' | 'multirotor' | 'rocket' | 'burner' | 'hiss' | 'whoosh' | 'pedal' | 'none';
 
-/** 飛び方の物理モデル。sim/physics.ts に実装がある */
 export type FlightModel = 'plane' | 'hover' | 'rocket' | 'balloon';
 
 export interface VehicleDef {
@@ -50,7 +42,6 @@ export interface VehicleDef {
   /** 見た目（render/vehicleMesh.ts のビルダー名） */
   shape: string;
   color: string;
-  /** どこから出発するか */
   start: 'runway' | 'pad';
   /** 当たり判定の半径 [m] */
   radius: number;
@@ -67,7 +58,6 @@ export interface VehicleDef {
   /** 全開で 1 秒あたりに使う燃料（タンク 100 に対して） */
   fuelUse: number;
   engine: EngineKind;
-  /** エンジン音の高さの倍率 */
   enginePitch: number;
   /** 使える燃料（省略時はすべて） */
   fuels?: string[];
@@ -80,11 +70,8 @@ export interface FuelDef {
   description: string;
   /** タンク容量の倍率（大きいほど長く飛べる） */
   capacity: number;
-  /** 出力の倍率 */
   power: number;
-  /** 軌跡の自動カラー */
   trailColor: string;
-  /** エンジン音の高さの倍率 */
   tone: number;
 }
 
@@ -128,7 +115,6 @@ export interface ModeDef {
   objective: string;
   /** 順番にくぐるリング。空ならフリー飛行 */
   checkpoints: CheckpointDef[];
-  /** 割って回る風船 */
   targets?: TargetsDef;
   /** 制限時間 [秒]。0 なら無制限 */
   timeLimit: number;
@@ -141,7 +127,6 @@ export interface SceneryDef {
   id: string;
   name: string;
   kind: string;
-  /** ビルダーに渡す任意のパラメータ */
   params: Record<string, number | string | boolean>;
 }
 

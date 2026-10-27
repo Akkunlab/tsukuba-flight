@@ -1,5 +1,4 @@
 // 飛行のリプレイ。記録したフレームを補間して再生し、カメラを切り替えながら見せる。
-// 墜落したときは、最後の数秒をスローで見せる。
 import * as THREE from 'three';
 import type { ReplayFrame } from '../sim/flight';
 
@@ -57,7 +56,6 @@ export class ReplayPlayer {
     this.t += dt * this.speed();
     const end = this.frames[this.frames.length - 1][0];
     if (this.t > end + 1.5) {
-      // 少し間をおいて最初から
       this.t = this.frames[0][0];
       this.camTimer = 0;
     }
@@ -100,7 +98,6 @@ export class ReplayPlayer {
     return p;
   }
 
-  /** カメラの位置と注視点を決める */
   place(cam: THREE.PerspectiveCamera, pose: ReplayPose, radius: number, ground: (x: number, z: number) => number) {
     const r = Math.max(radius, 1.5);
     const fx = Math.sin(pose.yaw);

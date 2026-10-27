@@ -8,12 +8,17 @@ export class Trail {
   readonly mesh: THREE.Mesh;
   private positions = new Float32Array(MAX * 2 * 3);
   private colors = new Float32Array(MAX * 2 * 4);
-  private pts: { p: THREE.Vector3; side: THREE.Vector3; c: THREE.Color; w: number }[] = [];
+  /** c: おまかせの色、w: 太さ、id: 通し番号（点線と虹の模様に使う） */
+  private pts: { p: THREE.Vector3; side: THREE.Vector3; c: THREE.Color; w: number; id: number }[] = [];
   private geo: THREE.BufferGeometry;
+  /** 色と形は描くたびに読むので、変えるとすぐ軌跡全体に反映される */
   setting: TrailSetting = { mode: 'auto', color: '#ffffff', style: 'ribbon' };
   baseWidth = 1.5;
   private emitTimer = 0;
-  private hue = 0;
+  private nextId = 0;
+  private time = 0;
+  private custom = new THREE.Color();
+  private tmp = new THREE.Color();
 
   constructor() {
     this.geo = new THREE.BufferGeometry();
@@ -27,7 +32,7 @@ export class Trail {
     this.geo.setIndex(idx);
     this.mesh = new THREE.Mesh(
       this.geo,
-      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
     );
     this.mesh.frustumCulled = false;
   }
@@ -37,28 +42,28 @@ export class Trail {
     this.geo.setDrawRange(0, 0);
   }
 
-  /** 毎フレーム呼ぶ。color は今の色、level は音の大きさ (0..1) */
-  update(dt: number, pos: THREE.Vector3, right: THREE.Vector3, color: THREE.Color, level: number, emit: boolean) {
+  /** 毎フレーム呼ぶ。autoColor はおまかせのときの今の色、level は音の大きさ (0..1) */
+  update(dt: number, pos: THREE.Vector3, right: THREE.Vector3, autoColor: THREE.Color, level: number, emit: boolean) {
     this.emitTimer += dt;
-    this.hue = (this.hue + dt * 0.25) % 1;
+    this.time += dt;
     if (emit && this.emitTimer >= 1 / 30) {
       this.emitTimer = 0;
-      let c = color.clone();
-      if (this.setting.style === 'rainbow') c = new THREE.Color().setHSL(this.hue, 0.9, 0.6);
-      let w = this.baseWidth * (0.55 + level * 1.6);
-      if (this.setting.style === 'dots' && this.pts.length % 4 < 2) w = 0;
       const last = this.pts[this.pts.length - 1];
       if (!last || last.p.distanceToSquared(pos) > 0.04) {
-        this.pts.push({ p: pos.clone(), side: right.clone(), c, w });
+        this.pts.push({ p: pos.clone(), side: right.clone(), c: autoColor.clone(), w: this.baseWidth * (0.6 + level * 1.4), id: this.nextId++ });
         if (this.pts.length > MAX) this.pts.shift();
       }
     }
+    const style = this.setting.style;
+    this.custom.set(this.setting.color);
     const n = this.pts.length;
     for (let i = 0; i < n; i++) {
       const pt = this.pts[i];
       const age = 1 - i / Math.max(n - 1, 1);
-      const w = pt.w * (1 - age * 0.3);
-      const a = (1 - age) * 0.55;
+      let w = pt.w * (1 - age * 0.4);
+      if (style === 'dots' && pt.id % 6 >= 3) w = 0;
+      const c = style === 'rainbow' ? this.tmp.setHSL((pt.id * 0.012 + this.time * 0.1) % 1, 0.9, 0.6) : this.setting.mode === 'custom' ? this.custom : pt.c;
+      const a = (1 - age) * 0.85;
       const o = i * 6;
       this.positions[o] = pt.p.x - pt.side.x * w;
       this.positions[o + 1] = pt.p.y - pt.side.y * w;
@@ -67,11 +72,11 @@ export class Trail {
       this.positions[o + 4] = pt.p.y + pt.side.y * w;
       this.positions[o + 5] = pt.p.z + pt.side.z * w;
       const k = i * 8;
-      for (let s = 0; s < 2; s++) {
-        this.colors[k + s * 4] = pt.c.r;
-        this.colors[k + s * 4 + 1] = pt.c.g;
-        this.colors[k + s * 4 + 2] = pt.c.b;
-        this.colors[k + s * 4 + 3] = a;
+      for (let sd = 0; sd < 2; sd++) {
+        this.colors[k + sd * 4] = c.r;
+        this.colors[k + sd * 4 + 1] = c.g;
+        this.colors[k + sd * 4 + 2] = c.b;
+        this.colors[k + sd * 4 + 3] = a;
       }
     }
     this.geo.attributes.position.needsUpdate = true;
@@ -182,7 +187,6 @@ export function blobShadow(): THREE.Mesh {
   return m;
 }
 
-/** 風船割りの風船。割れると小さく弾けて消える */
 export class Balloons {
   readonly group = new THREE.Group();
   private items: { m: THREE.Group; pop: number; base: number; phase: number }[] = [];
@@ -215,7 +219,6 @@ export class Balloons {
     if (it && it.pop < 0) it.pop = 0;
   }
 
-  /** 全部まとめて元に戻す（リプレイ用）。popped[i] が true のものは消す */
   show(popped: boolean[]) {
     this.items.forEach((it, i) => {
       it.pop = popped[i] ? 1 : -1;
@@ -238,7 +241,6 @@ export class Balloons {
   }
 }
 
-/** 飛んだ道すじ（高さで色を変える線） */
 export function pathLine(points: { x: number; y: number; z: number }[], ground: (x: number, z: number) => number): THREE.Line {
   const pos: number[] = [];
   const col: number[] = [];

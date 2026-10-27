@@ -2,21 +2,11 @@ import type { ModeDef } from './types';
 
 export const MODES: ModeDef[] = [
   {
-    id: 'free',
-    name: 'フリーフライト',
-    icon: 'free',
-    description: '練習用。リングも制限時間もない。好きなところを飛んで、どこかに着陸する。',
-    objective: '自由に飛んで、無事に着陸する',
-    timeLimit: 0,
-    wind: 1,
-    checkpoints: [],
-  },
-  {
     id: 'tour',
     name: '筑波大一周ツアー',
     icon: 'tour',
-    description: 'キャンパスの名所に浮かぶ 8 つのリングを順番にくぐり、最後に着陸する。',
-    objective: 'リングを順番にくぐって、最後に着陸する',
+    description: '名所に浮かぶ 8 つのリングを順にくぐる。',
+    objective: 'リングを順番にくぐって、着陸する',
     timeLimit: 0,
     wind: 2,
     checkpoints: [
@@ -34,26 +24,11 @@ export const MODES: ModeDef[] = [
     id: 'balloons',
     name: '風船割り',
     icon: 'target',
-    description: 'キャンパスの上に赤い風船が 15 個。体当たりで割る。制限時間は 4 分。',
-    objective: '時間内に風船をできるだけ多く割る',
+    description: 'キャンパスの上の赤い風船 15 個に体当たり。',
+    objective: '4 分以内に、風船をできるだけ多く割る',
     timeLimit: 240,
     wind: 1.5,
     checkpoints: [],
     targets: { count: 15, radius: 9, x: 0, z: -300, spread: 1100, minAlt: 35, maxAlt: 140 },
-  },
-  {
-    id: 'gust',
-    name: '春一番チャレンジ',
-    icon: 'wind',
-    description: '強い横風の中、キャンパス中央の 4 つのリングを 4 分以内にくぐる。',
-    objective: '強風の中、4 分以内にリングを全部くぐる',
-    timeLimit: 240,
-    wind: 9,
-    checkpoints: [
-      { name: '中央図書館', x: -59, z: -347, alt: 60 },
-      { name: '大学本部棟', x: 179, z: -608, alt: 70 },
-      { name: '中央体育館', x: 172, z: 405, alt: 60 },
-      { name: '大学会館', x: -8, z: 61, alt: 60 },
-    ],
   },
 ];

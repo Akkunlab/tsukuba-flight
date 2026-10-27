@@ -89,7 +89,6 @@ export class Controls {
     this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
-  /** dt 秒ぶん入力を更新して返す */
   read(dt: number): Input {
     const k = this.keys;
     let tx = 0;

@@ -1,9 +1,7 @@
-// 地形・建物・森・水面・滑走路の 3D モデルを作る。
 import * as THREE from 'three';
 import { PAD, RUNWAY, World } from '../sim/world';
 
 export interface PhotoSampler {
-  /** ワールド座標 (x, z) の航空写真の色 */
   colorAt(x: number, z: number): THREE.Color;
 }
 
@@ -33,8 +31,6 @@ export function makePhotoSampler(img: HTMLImageElement | ImageBitmap, world: Wor
     },
   };
 }
-
-// ---------- 手続き的なテクスチャ ----------
 
 function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, srgb = true): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -76,7 +72,6 @@ interface FacadeStyle {
 function facade(kind: 'office' | 'apartment' | 'house' | 'glass' | 'metal'): FacadeStyle {
   const r = rng(kind.length * 77);
   const S = 512;
-  // 窓の位置を描く関数を、色用と粗さ用で共通にする
   type Draw = (g: CanvasRenderingContext2D, rough: boolean) => void;
   let tileW = 12;
   let tileH = 15.2;
@@ -92,7 +87,6 @@ function facade(kind: 'office' | 'apartment' | 'house' | 'glass' | 'metal'): Fac
     grad.addColorStop(1, '#2a3846');
     g.fillStyle = grad;
     g.fillRect(x, y, w, h);
-    // カーテンや室内の明暗
     for (let i = 0; i < 3; i++) {
       g.fillStyle = `rgba(${200 + r() * 55},${200 + r() * 55},${190 + r() * 40},${0.08 + r() * 0.12})`;
       g.fillRect(x + r() * w * 0.7, y, w * (0.15 + r() * 0.3), h);
@@ -100,7 +94,6 @@ function facade(kind: 'office' | 'apartment' | 'house' | 'glass' | 'metal'): Fac
   };
   switch (kind) {
     case 'office':
-      // 4 階分。水平に連なる窓（リボン窓）とコンクリートの帯
       tileW = 12;
       tileH = 15.2;
       draw = (g, rough) => {
@@ -125,7 +118,6 @@ function facade(kind: 'office' | 'apartment' | 'house' | 'glass' | 'metal'): Fac
       };
       break;
     case 'apartment':
-      // 3 階分・2 戸分。ベランダの手すりと掃き出し窓、室外機
       tileW = 7.2;
       tileH = 8.4;
       draw = (g, rough) => {
@@ -143,7 +135,6 @@ function facade(kind: 'office' | 'apartment' | 'house' | 'glass' | 'metal'): Fac
             }
           }
           if (!rough) {
-            // 手すり壁
             g.fillStyle = 'rgba(255,255,255,0.85)';
             g.fillRect(0, y + fh * 0.62, S, fh * 0.26);
             g.fillStyle = 'rgba(0,0,0,0.25)';
@@ -206,7 +197,6 @@ function facade(kind: 'office' | 'apartment' | 'house' | 'glass' | 'metal'): Fac
     g.fillStyle = '#ffffff';
     g.fillRect(0, 0, S, S);
     speckle(g, S, S, 4000, 0.07, r);
-    // 雨だれの汚れ
     for (let i = 0; i < 30; i++) {
       g.fillStyle = `rgba(60,55,50,${0.03 + r() * 0.05})`;
       g.fillRect(r() * S, r() * S, 2 + r() * 6, 30 + r() * 120);
@@ -263,7 +253,6 @@ function noiseTexture(seed: number, size = 256, gray = false): THREE.CanvasTextu
     size,
     (g, w, h) => {
       const img = g.createImageData(w, h);
-      // 粗い値ノイズを 3 段重ねる
       const layers = [8, 32, 128].map((n) => {
         const grid = Array.from({ length: (n + 1) * (n + 1) }, () => r());
         return { n, grid };
@@ -319,8 +308,6 @@ function addDetail(mat: THREE.MeshStandardMaterial | THREE.MeshLambertMaterial, 
   };
 }
 
-// ---------- 地形 ----------
-
 export function buildTerrain(world: World, nearTex: THREE.Texture, farTex: THREE.Texture): THREE.Group {
   const group = new THREE.Group();
   const n = world.data.near;
@@ -356,7 +343,6 @@ export function buildTerrain(world: World, nearTex: THREE.Texture, farTex: THREE
   farMesh.name = 'terrain-far';
   group.add(farMesh);
 
-  // 遠景のさらに外側（地平線まで）
   const horizon = new THREE.Mesh(
     new THREE.CircleGeometry(90000, 48).rotateX(-Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: 0x55653f, roughness: 1 }),
@@ -365,8 +351,6 @@ export function buildTerrain(world: World, nearTex: THREE.Texture, farTex: THREE
   group.add(horizon);
   return group;
 }
-
-// ---------- 建物 ----------
 
 type Style = 'office' | 'apartment' | 'house' | 'glass' | 'metal';
 
@@ -539,7 +523,6 @@ export function buildBuildings(world: World, sampler: PhotoSampler | null): THRE
     const style = styleOf(info?.t, h, absArea);
     const cx = (o.minX + o.maxX) / 2;
     const cz = (o.minZ + o.maxZ) / 2;
-    // 屋根の色：OSM の roof:colour → 航空写真
     const photo = sampler ? sampleRoof(sampler, poly) : new THREE.Color(0x888888);
     const roofColor = parseColor(info?.rc) ?? photo.clone().multiplyScalar(1.05);
     const pal = WALL_PALETTES[style === 'canopy' ? 'metal' : style];
@@ -548,7 +531,6 @@ export function buildBuildings(world: World, sampler: PhotoSampler | null): THRE
     const y1 = o.top;
 
     if (style === 'canopy') {
-      // カーポートや渡り廊下の屋根：薄い板だけ
       addRoofSlab(flatRoofs, poly, y1 - 0.3, y1, roofColor, [cx, y1 - 0.15, cz]);
       continue;
     }
@@ -579,12 +561,13 @@ export function buildBuildings(world: World, sampler: PhotoSampler | null): THRE
       const u1 = (along + len) / fs.tileW;
       const v0 = (y0 - o.base) / fs.tileH;
       const v1 = (eave - o.base) / fs.tileH;
-      // 面の外側を判定するため、辺の中点から少し内側の点を使う
       const mx = (ax + bx) / 2;
       const mz = (az + bz) / 2;
       const nx = -(bz - az) / (len || 1);
       const nz = (bx - ax) / (len || 1);
-      const inPt = [mx - nx * 0.5, (y0 + eave) / 2, mz - nz * 0.5];
+      // 辺の中点から少しずらした点が輪郭の中にある側を「内側」とする（多角形の向きに頼らない）
+      const sgn = pointIn(mx - nx * 0.3, mz - nz * 0.3, poly) ? 1 : -1;
+      const inPt = [mx - nx * 0.3 * sgn, (y0 + eave) / 2, mz - nz * 0.3 * sgn];
       buf.tri([ax, y0, az], [bx, y0, bz], [bx, eave, bz], [u0, v0], [u1, v0], [u1, v1], wallColor, inPt);
       buf.tri([ax, y0, az], [bx, eave, bz], [ax, eave, az], [u0, v0], [u1, v1], [u0, v1], wallColor, inPt);
       along += len;
@@ -654,7 +637,6 @@ function addRoofSlab(buf: GeoBuf, poly: [number, number][], yBottom: number, yTo
     buf.tri([a[0], yTop, a[1]], [b[0], yTop, b[1]], [c[0], yTop, c[1]], [a[0] / 8, a[1] / 8], [b[0] / 8, b[1] / 8], [c[0] / 8, c[1] / 8], color, above);
   }
   if (yBottom < yTop) {
-    // 板の縁
     for (let i = 0; i < poly.length; i++) {
       const [ax, az] = poly[i];
       const [bx, bz] = poly[(i + 1) % poly.length];
@@ -672,8 +654,7 @@ function addGable(roof: GeoBuf, wall: GeoBuf, r: ReturnType<typeof minRect>, eav
   const toXZ = (u: number, v: number) => [u * c - v * s, u * s + v * c];
   const lenU = r.maxU - r.minU;
   const lenV = r.maxV - r.minV;
-  const o = 0.45; // 軒の出
-  // 棟は長い辺に平行
+  const eaves = 0.45;
   const alongU = lenU >= lenV;
   const mid = alongU ? (r.minV + r.maxV) / 2 : (r.minU + r.maxU) / 2;
   const p = (u: number, v: number, y: number) => {
@@ -683,8 +664,8 @@ function addGable(roof: GeoBuf, wall: GeoBuf, r: ReturnType<typeof minRect>, eav
   const centre = p((r.minU + r.maxU) / 2, (r.minV + r.maxV) / 2, eave - 3);
   const dropY = eave - 0.25;
   if (alongU) {
-    const u0 = r.minU - o, u1 = r.maxU + o;
-    for (const vEdge of [r.minV - o, r.maxV + o]) {
+    const u0 = r.minU - eaves, u1 = r.maxU + eaves;
+    for (const vEdge of [r.minV - eaves, r.maxV + eaves]) {
       const a = p(u0, vEdge, dropY), b = p(u1, vEdge, dropY), cc = p(u1, mid, ridge), d = p(u0, mid, ridge);
       const sl = Math.hypot(mid - vEdge, ridge - dropY) / 2.4;
       roof.tri(a, b, cc, [0, 0], [lenU / 2.4, 0], [lenU / 2.4, sl], roofColor, centre);
@@ -695,8 +676,8 @@ function addGable(roof: GeoBuf, wall: GeoBuf, r: ReturnType<typeof minRect>, eav
       wall.tri(a, b, t, [0, (eave % fs.tileH) / fs.tileH], [lenV / fs.tileW, (eave % fs.tileH) / fs.tileH], [lenV / 2 / fs.tileW, 0.99], wallColor, centre);
     }
   } else {
-    const v0 = r.minV - o, v1 = r.maxV + o;
-    for (const uEdge of [r.minU - o, r.maxU + o]) {
+    const v0 = r.minV - eaves, v1 = r.maxV + eaves;
+    for (const uEdge of [r.minU - eaves, r.maxU + eaves]) {
       const a = p(uEdge, v0, dropY), b = p(uEdge, v1, dropY), cc = p(mid, v1, ridge), d = p(mid, v0, ridge);
       const sl = Math.hypot(mid - uEdge, ridge - dropY) / 2.4;
       roof.tri(a, b, cc, [0, 0], [lenV / 2.4, 0], [lenV / 2.4, sl], roofColor, centre);
@@ -707,15 +688,12 @@ function addGable(roof: GeoBuf, wall: GeoBuf, r: ReturnType<typeof minRect>, eav
       wall.tri(a, b, t, [0, (eave % fs.tileH) / fs.tileH], [lenU / fs.tileW, (eave % fs.tileH) / fs.tileH], [lenU / 2 / fs.tileW, 0.99], wallColor, centre);
     }
   }
-  // 屋根の裏（下から見たとき）を閉じる
   const under = [centre[0], eave + 30, centre[2]];
-  const corners = [p(r.minU - o, r.minV - o, dropY), p(r.maxU + o, r.minV - o, dropY), p(r.maxU + o, r.maxV + o, dropY), p(r.minU - o, r.maxV + o, dropY)];
+  const corners = [p(r.minU - eaves, r.minV - eaves, dropY), p(r.maxU + eaves, r.minV - eaves, dropY), p(r.maxU + eaves, r.maxV + eaves, dropY), p(r.minU - eaves, r.maxV + eaves, dropY)];
   const dark = roofColor.clone().multiplyScalar(0.35);
   roof.tri(corners[0], corners[1], corners[2], [0, 0], [1, 0], [1, 1], dark, under);
   roof.tri(corners[0], corners[2], corners[3], [0, 0], [1, 1], [0, 1], dark, under);
 }
-
-// ---------- 木 ----------
 
 export function buildTrees(world: World, maxTrees = 14000): THREE.Group {
   const rand = rng(7);
@@ -738,7 +716,6 @@ export function buildTrees(world: World, maxTrees = 14000): THREE.Group {
     }
   });
 
-  // 広葉樹：でこぼこした丸い樹冠を 3 つ重ねる
   const broad = mergeSimple(
     [
       lumpy(new THREE.IcosahedronGeometry(4.2, 2), 0.9, 1).translate(0, 9.5, 0),
@@ -746,7 +723,6 @@ export function buildTrees(world: World, maxTrees = 14000): THREE.Group {
       lumpy(new THREE.IcosahedronGeometry(3.0, 1), 0.7, 3).translate(-1.8, 8.4, -1.2),
     ],
   );
-  // 針葉樹（松・杉）：細い円錐を重ねる
   const conifer = mergeSimple([
     lumpy(new THREE.ConeGeometry(3.2, 6, 9, 2), 0.45, 4).translate(0, 7.5, 0),
     lumpy(new THREE.ConeGeometry(2.5, 5, 9, 2), 0.4, 5).translate(0, 10.5, 0),
@@ -807,7 +783,6 @@ function lumpy(geo: THREE.BufferGeometry, amount: number, seed: number) {
   }
   g.deleteAttribute('uv');
   g.computeVertexNormals();
-  // 樹冠に模様を貼るための簡単な UV
   const uv: number[] = [];
   for (let i = 0; i < p.count; i++) uv.push(p.getX(i) * 0.15 + p.getY(i) * 0.05, p.getZ(i) * 0.15 + p.getY(i) * 0.1);
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
@@ -841,8 +816,6 @@ function pointIn(x: number, z: number, poly: [number, number][]) {
   return inside;
 }
 
-// ---------- 水面 ----------
-
 export function buildWater(world: World): THREE.Mesh {
   const pos: number[] = [];
   for (const poly of world.data.water) {
@@ -859,7 +832,6 @@ export function buildWater(world: World): THREE.Mesh {
   for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] / 20, pos[i + 2] / 20);
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.computeVertexNormals();
-  // さざ波の法線マップ（ノイズから作る）
   const ripple = noiseTexture(21, 256);
   const mat = new THREE.MeshStandardMaterial({
     color: 0x223d48,
@@ -875,8 +847,6 @@ export function buildWater(world: World): THREE.Mesh {
   return m;
 }
 
-// ---------- 滑走路 ----------
-
 function runwayTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 256;
@@ -886,14 +856,12 @@ function runwayTexture(): THREE.CanvasTexture {
   g.fillStyle = '#4a4c4f';
   g.fillRect(0, 0, c.width, c.height);
   speckle(g, c.width, c.height, 60000, 0.18, r);
-  // タイヤ痕（接地帯）
   for (const y0 of [c.height - 900, 300]) {
     for (let i = 0; i < 260; i++) {
       g.fillStyle = `rgba(15,15,15,${0.05 + r() * 0.12})`;
       g.fillRect(100 + r() * 56, y0 + r() * 600, 2 + r() * 4, 40 + r() * 160);
     }
   }
-  // 舗装の継ぎ目
   g.fillStyle = 'rgba(0,0,0,0.18)';
   for (let y = 0; y < c.height; y += 64) g.fillRect(0, y, c.width, 1);
   g.fillStyle = '#ececec';
@@ -901,7 +869,6 @@ function runwayTexture(): THREE.CanvasTexture {
   g.fillRect(c.width - 13, 0, 5, c.height);
   for (let y = 360; y < c.height - 360; y += 120) g.fillRect(125, y, 6, 64);
   for (const y0 of [24, c.height - 160]) for (let x = 26; x < 230; x += 24) if (Math.abs(x - 128) > 14) g.fillRect(x, y0, 12, 136);
-  // 接地帯標識
   for (const y0 of [c.height - 640, 500]) {
     g.fillRect(70, y0, 22, 110);
     g.fillRect(164, y0, 22, 110);
@@ -933,7 +900,6 @@ export function buildAirfield(world: World): THREE.Group {
   rw.position.set(RUNWAY.x, y + 0.12, RUNWAY.z);
   rw.receiveShadow = true;
   group.add(rw);
-  // 芝生の帯
   const grassTex = noiseTexture(17, 256, true);
   grassTex.repeat.set(8, 30);
   const grass = new THREE.Mesh(
@@ -943,7 +909,6 @@ export function buildAirfield(world: World): THREE.Group {
   grass.position.set(RUNWAY.x, y + 0.06, RUNWAY.z);
   grass.receiveShadow = true;
   group.add(grass);
-  // 誘導路とエプロン
   const apron = new THREE.Mesh(
     new THREE.PlaneGeometry(110, 120).rotateX(-Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: 0x8a8c8d, roughness: 0.9, map: noiseTexture(19, 128, true) }),
@@ -951,7 +916,6 @@ export function buildAirfield(world: World): THREE.Group {
   apron.position.set(PAD.x + 10, y + 0.09, PAD.z + 10);
   apron.receiveShadow = true;
   group.add(apron);
-  // 発射台（ヘリポートの H）
   const padC = document.createElement('canvas');
   padC.width = padC.height = 512;
   const g = padC.getContext('2d')!;
@@ -978,7 +942,6 @@ export function buildAirfield(world: World): THREE.Group {
   pad.position.set(PAD.x, world.terrainHeight(PAD.x, PAD.z) + 0.16, PAD.z);
   pad.receiveShadow = true;
   group.add(pad);
-  // 滑走路灯
   const lightGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.7, 8);
   const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff1c0, emissive: 0xffd88a, emissiveIntensity: 1.2 });
   const lights = new THREE.InstancedMesh(lightGeo, lightMat, 2 * Math.floor(RUNWAY.length / 50 + 1));
@@ -992,7 +955,6 @@ export function buildAirfield(world: World): THREE.Group {
   }
   lights.count = i;
   group.add(lights);
-  // 格納庫（かまぼこ屋根の金属の建物）
   const corrugated = canvasTex(256, 256, (c, w, h) => {
     c.fillStyle = '#ffffff';
     c.fillRect(0, 0, w, h);

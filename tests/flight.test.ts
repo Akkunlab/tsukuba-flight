@@ -7,7 +7,7 @@ import { World, type WorldData } from '../src/sim/world';
 
 const DT = 1 / 60;
 const world = new World(JSON.parse(readFileSync('public/data/world.json', 'utf8')) as WorldData);
-const FREE = { ...modeById('free'), wind: 0 };
+const FREE = { ...modeById('tour'), wind: 0, checkpoints: [] };
 
 function takesOff(vehicle: (typeof VEHICLES)[number], fuel: ReturnType<typeof fuelsFor>[number]): boolean {
   const f = new Flight(world, { vehicle, fuel, mode: FREE, seed: 1 });

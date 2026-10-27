@@ -34,9 +34,7 @@ export interface WorldData {
 
 /** 架空の「筑波大学 農場滑走路」。キャンパス北側の畑に南北向きで置く */
 export const RUNWAY = { x: 50, z: -1300, length: 1000, width: 45 };
-/** 飛行機の出発点（滑走路の南端、北向き） */
 export const RUNWAY_START = { x: RUNWAY.x, z: RUNWAY.z + RUNWAY.length / 2 - 40 };
-/** ドローン・ロケットなどの発射台 */
 export const PAD = { x: RUNWAY.x + 85, z: RUNWAY.z + RUNWAY.length / 2 - 60 };
 /** 森の木の高さ（当たり判定） */
 export const TREE_HEIGHT = 13;
@@ -51,7 +49,6 @@ export interface Obstacle {
   maxX: number;
   minZ: number;
   maxZ: number;
-  /** 元の建物データ（見た目用） */
   src?: BuildingData;
 }
 
@@ -154,7 +151,6 @@ function polyArea(p: [number, number][]) {
   return a / 2;
 }
 
-/** Sutherland–Hodgman で軸に平行な箱に切り取る */
 function clipToBox(poly: [number, number][], x0: number, x1: number, z0: number, z1: number): [number, number][] {
   const edges: [(p: [number, number]) => boolean, (a: [number, number], b: [number, number]) => [number, number]][] = [
     [(p) => p[0] >= x0, (a, b) => lerpAt(a, b, 0, x0)],
@@ -268,7 +264,6 @@ export class World {
     return h;
   }
 
-  /** 位置 (x, z) の周りの障害物候補 */
   private candidates(x: number, z: number, r: number): Obstacle[] {
     const out = new Set<number>();
     for (let ix = Math.floor((x - r) / CELL); ix <= Math.floor((x + r) / CELL); ix++) {
@@ -302,7 +297,6 @@ export class World {
     return null;
   }
 
-  /** 飛べる範囲の外か */
   outOfBounds(x: number, z: number): boolean {
     const f = this.data.far;
     const m = 600;
@@ -340,7 +334,6 @@ export class World {
   }
 }
 
-/** テスト用の小さな世界（平らな地面と建物 1 つ） */
 export function makeFlatWorldData(opts: { ground?: number; buildings?: WorldData['buildings']; woods?: WorldData['woods'] } = {}): WorldData {
   const g = opts.ground ?? 20;
   const grid = (half: number): HeightGrid => ({ minX: -half, maxX: half, minZ: -half, maxZ: half, size: 2, heights: [g, g, g, g] });

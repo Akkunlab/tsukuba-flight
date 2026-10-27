@@ -151,7 +151,6 @@ export interface Summary {
   totalDistance: number;
 }
 
-/** みんなの合計（サーバーに届かないときは null） */
 export async function fetchSummary(): Promise<Summary | null> {
   try {
     const res = await fetch('/api/summary');
@@ -163,7 +162,6 @@ export async function fetchSummary(): Promise<Summary | null> {
   }
 }
 
-/** このブラウザでの自己ベスト（モードごと） */
 export function loadBest(): Record<string, number> {
   try {
     const v = JSON.parse(storageGet(KEY_BEST) ?? '{}');
