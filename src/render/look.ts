@@ -108,14 +108,15 @@ function basicLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: TH
   };
 }
 
+const SKY_GAIN = 10;
 let brightened = false;
 
 function realisticLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, o: LookOptions): Look {
-  // 大気の明るさは「太陽を 1」とした相対値で小さいので 10 倍にし、
-  // 光の当たらないもの（リング・軌跡・炎など）と同じ露出 1 で見られるようにする
+  // 大気の明るさは「太陽を 1」とした相対値で小さいので、空と太陽の光を 10 倍にし、
+  // 光の当たらないもの（リング・軌跡・炎など）と同じ露出 1 で見られるようにする。
+  // 太陽の円盤そのものは元の値のまま（10 倍すると半精度の上限を超えて画面が黒く崩れる）
   if (!brightened) {
-    AtmosphereParameters.DEFAULT.sunRadianceToRelativeLuminance.multiplyScalar(10);
-    AtmosphereParameters.DEFAULT.skyRadianceToRelativeLuminance.multiplyScalar(10);
+    AtmosphereParameters.DEFAULT.skyRadianceToRelativeLuminance.multiplyScalar(SKY_GAIN);
     brightened = true;
   }
   // トーンマップは後処理でかけるので、レンダラーでは何もしない
@@ -138,7 +139,7 @@ function realisticLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera
   const sun = new SunDirectionalLight({ distance: 4000 });
   sun.sunDirection.copy(sunECEF);
   sun.worldToECEFMatrix.copy(toECEF);
-  sun.intensity = 1;
+  sun.intensity = SKY_GAIN;
   setupShadow(sun, o);
   scene.add(sun, sun.target);
 
