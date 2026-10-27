@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { VEHICLES, fuelsFor, modeById } from '../src/content/index';
 import { Flight, COUNTDOWN } from '../src/sim/flight';
-import { World, type WorldData } from '../src/sim/world';
+import { World, flatHeights, type WorldFile } from '../src/sim/world';
 
 const DT = 1 / 60;
-const world = new World(JSON.parse(readFileSync('public/data/world.json', 'utf8')) as WorldData);
+const file = JSON.parse(readFileSync('public/data/world.json', 'utf8')) as WorldFile;
+// 標高は遊ぶときに国土地理院から読み込むので、テストでは平らな地面に実際の建物を置く
+const world = new World({ ...file, near: flatHeights(file.near), far: flatHeights(file.far) });
 const FREE = { ...modeById('tour'), wind: 0, checkpoints: [] };
 
 function takesOff(vehicle: (typeof VEHICLES)[number], fuel: ReturnType<typeof fuelsFor>[number]): boolean {

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""筑波大学周辺の地形・航空写真・建物データを取得して public/data に焼き込む。
+"""筑波大学周辺の航空写真・建物データを取得して public/data に焼き込む。
 
 出典:
-  - 標高・航空写真: 国土地理院タイル (https://maps.gsi.go.jp/development/ichiran.html)
+  - 航空写真: 国土地理院タイル (https://maps.gsi.go.jp/development/ichiran.html)。継ぎ目と色をならす加工をしている
+  - 標高はここでは取得しない。ゲームが国土地理院の標高タイルをその場で読み込む
   - 建物・森・水域: © OpenStreetMap contributors (ODbL)
 
 使い方: python3 scripts/fetch-data.py   （再実行時はキャッシュを使う）
@@ -105,19 +106,6 @@ def mosaic(layer, ext, z, bbox, fix=None):
     )
     return img.crop(crop)
 
-def dem_grid(z, bbox, size):
-    """dem_png を数値標高 [m] のグリッド (size x size) にする。無効値は周囲の平均で埋める。"""
-    img = mosaic("dem_png", "png", z, bbox)
-    a = np.asarray(img).astype(np.int64)
-    v = a[:, :, 0] * 65536 + a[:, :, 1] * 256 + a[:, :, 2]
-    invalid = v == 8388608
-    v = np.where(v >= 8388608, v - 16777216, v).astype(np.float64) * 0.01
-    v[invalid] = np.nan
-    fill = np.nanmedian(v) if np.isfinite(np.nanmedian(v)) else 0.0
-    v = np.where(np.isnan(v), fill, v)
-    im = Image.fromarray(v.astype(np.float32), mode="F").resize((size, size), Image.BILINEAR)
-    return np.asarray(im)
-
 def seam_mask(a, chunk=256, lines_max=6):
     """継ぎ目：画像全体を貫く直線の段差。列（行）ごとの平均色の飛びが大きい位置を候補にし、
     256px ごとに「境目をはさんだ差が、すぐ内側どうしの差より大きいか」で継ぎ目の区間を決める"""
@@ -184,6 +172,9 @@ def harmonize(img):
     a = np.asarray(img).astype(np.float64) / 255
     v, h = seam_mask(a)
     out = flatten(np.clip(poisson(a, v, h), 0, 1))
+    # 色をならすと彩度が落ちるので、少し戻す
+    lum = out.mean(-1, keepdims=True)
+    out = lum + (out - lum) * 1.3
     return Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8))
 
 
@@ -379,20 +370,16 @@ out geom;
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    near_size, far_size = 257, 257
-    near = dem_grid(14, NEAR, near_size)
-    far = dem_grid(11, FAR, far_size)
     save_photo(17, NEAR, "near.jpg", 4096)
     save_photo(13, FAR, "far.jpg", 2048)
     match_far_to_near()
     osm = build_osm()
     world = {
         "origin": {"lat": ORIGIN_LAT, "lon": ORIGIN_LON},
-        "attribution": "地形・航空写真: 国土地理院の地理院タイルを加工して作成 / 建物・森・水域: © OpenStreetMap contributors (ODbL 1.0)",
-        "near": {**bbox_meters(NEAR), "size": near_size,
-                 "heights": [round(float(v), 1) for v in near.flatten()]},
-        "far": {**bbox_meters(FAR), "size": far_size,
-                "heights": [round(float(v), 1) for v in far.flatten()]},
+        "attribution": "標高: 国土地理院の標高タイル（ゲームの中でその場で読み込む） / 航空写真: 国土地理院の地理院タイルを加工して作成 / 建物・森・水域: © OpenStreetMap contributors (ODbL 1.0)",
+        # 標高は測量法の基本測量成果なので、ここには入れずブラウザが国土地理院から直接読み込む（src/world/dem.ts）
+        "near": {**bbox_meters(NEAR), **NEAR, "z": 14, "size": 257},
+        "far": {**bbox_meters(FAR), **FAR, "z": 11, "size": 257},
         **osm,
     }
     with open(os.path.join(OUT, "world.json"), "w") as f:

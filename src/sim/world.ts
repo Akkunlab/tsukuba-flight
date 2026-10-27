@@ -22,6 +22,24 @@ export interface BuildingData {
   hl?: [number, number][][];
 }
 
+/** 標高グリッドの範囲。高さそのものは国土地理院の標高タイルからその場で読み込む（src/world/dem.ts） */
+export interface GridSpec extends Omit<HeightGrid, 'heights'> {
+  /** 標高タイルのズーム */
+  z: number;
+  south: number;
+  north: number;
+  west: number;
+  east: number;
+}
+
+/** public/data/world.json の中身（標高なし） */
+export type WorldFile = Omit<WorldData, 'near' | 'far'> & { near: GridSpec; far: GridSpec };
+
+/** 標高を読み込めなかったときや、テストで使う平らな地面 */
+export function flatHeights(spec: Omit<HeightGrid, 'heights'>, h = 25): HeightGrid {
+  return { ...spec, heights: new Array(spec.size * spec.size).fill(h) };
+}
+
 export interface WorldData {
   origin: { lat: number; lon: number };
   attribution: string;

@@ -9,7 +9,8 @@ import { Hangar } from './ui/hangar';
 import { icon } from './ui/icons';
 import { Flight, RING_RADIUS, type FlightEvent, type Phase } from './sim/flight';
 import { forward } from './sim/physics';
-import { PAD, World, inRunwayArea, type WorldData } from './sim/world';
+import { PAD, World, flatHeights, inRunwayArea, type GridSpec, type WorldFile } from './sim/world';
+import { loadHeights } from './world/dem';
 import { buildAirfield, buildBuildings, buildTerrain, buildTrees, buildWater, loadTexture, makePhotoSampler } from './world/terrain';
 import { buildScenery, textSprite, type SceneryObject } from './world/scenery';
 import { buildVehicleModel, type VehicleModel } from './render/vehicleMesh';
@@ -156,7 +157,7 @@ function setLoading(p: number, text?: string) {
   if (text) $('#loading-text').textContent = text;
 }
 
-async function fetchWorld(): Promise<WorldData> {
+async function fetchWorld(): Promise<WorldFile> {
   const res = await fetch('/data/world.json');
   const total = Number(res.headers.get('content-length')) || 1_900_000;
   const reader = res.body!.getReader();
@@ -167,7 +168,7 @@ async function fetchWorld(): Promise<WorldData> {
     if (done) break;
     chunks.push(value);
     got += value.length;
-    setLoading(0.1 + 0.4 * Math.min(1, got / total));
+    setLoading(0.1 + 0.3 * Math.min(1, got / total));
   }
   const buf = new Uint8Array(got);
   let o = 0;
@@ -182,14 +183,22 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 async function init() {
   setLoading(0.05, '地形データを読み込んでいます…');
-  const [data, nearTex, farTex] = await Promise.all([
+  const [file, nearTex, farTex] = await Promise.all([
     fetchWorld(),
     loadTexture('/data/near.jpg', renderer),
     loadTexture('/data/far.jpg', renderer),
   ]);
+  setLoading(0.45, '国土地理院から標高を読み込んでいます…');
+  const heights = (spec: GridSpec) =>
+    loadHeights(spec, (d, t) => setLoading(0.45 + 0.15 * (d / t))).catch((e) => {
+      // 読み込めなくても遊べるよう、平らな地面にする
+      console.warn('標高タイルを読み込めませんでした', e);
+      return flatHeights(spec);
+    });
+  const [near, far] = await Promise.all([heights(file.near), heights(file.far)]);
   setLoading(0.6, 'キャンパスを組み立てています…');
   await tick();
-  world = new World(data);
+  world = new World({ ...file, near, far });
   scene.add(buildTerrain(world, nearTex, farTex));
   const sampler = makePhotoSampler(nearTex.image as HTMLImageElement, world, Q.sampler);
   setLoading(0.72, '建物を建てています…');
@@ -866,6 +875,8 @@ function updateHud() {
 
 (window as unknown as { __tf: unknown }).__tf = {
   debug,
+  /** テストや README の画像づくりで、飛行中の状態に触るため */
+  flight: () => flight,
   state: () => ({
     screen,
     phase: flight?.phase ?? null,

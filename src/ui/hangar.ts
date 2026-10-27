@@ -287,7 +287,7 @@ export class Hangar {
         ['パソコン', '矢印キー ／ W・S ／ C'],
         ['スマホ', '左スティック ／ 右バー'],
       ])}
-      <p class="subhead">地形・航空写真: 国土地理院（加工して作成） ／ 建物: © OpenStreetMap contributors ／ 筑波大学非公式</p>
+      <p class="subhead"><a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>（標高タイル・航空写真を加工して作成） ／ 建物: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> ／ 筑波大学非公式</p>
     </div>`;
   }
 

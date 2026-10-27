@@ -209,7 +209,7 @@ export class Explosion {
     }
     // 火花
     for (let i = 0; i < 60; i++) {
-      const mat = new THREE.SpriteMaterial({ color: 0xffd080, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+      const mat = new THREE.SpriteMaterial({ map: fireTex, color: 0xffd080, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
       const sp = new THREE.Sprite(mat);
       sp.scale.setScalar(0.25 + Math.random() * 0.25);
       sp.position.copy(at);
