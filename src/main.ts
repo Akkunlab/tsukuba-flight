@@ -1,6 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
-import { createLook } from './render/look';
+import { createLook, type LookLevel } from './render/look';
 import { EVOLUTION_LOG, GENERATION, SCENERY, fuelById, modeById, passengerById, vehicleById } from './content/index';
 import type { PassengerDef } from './content/types';
 import { AudioEngine } from './audio/sound';
@@ -24,37 +24,38 @@ const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 document.body.classList.add(isTouch ? 'touch' : 'desktop');
 
-/** 描画の品質。?quality=low|medium|high で指定できる（省略時はスマホ medium、パソコン high） */
+/** 描画の重さ。?quality=low|medium|high でも指定できる（省略時はスマホ medium、パソコン high） */
 type Quality = 'low' | 'medium' | 'high';
 const isQuality = (q: unknown): q is Quality => q === 'low' || q === 'medium' || q === 'high';
 const qParam = new URLSearchParams(location.search).get('quality');
 const qSaved = loadSettings().quality;
 const quality: Quality = isQuality(qParam) ? qParam : isQuality(qSaved) ? qSaved : isTouch ? 'medium' : 'high';
+// renderScale は画面の画素に対する描画の細かさ（文字や計器は HTML なので常にくっきり）
 const Q = {
-  low: { pixelRatio: 1, shadows: false, shadowMap: 1024, shadowHalf: 200, trees: 3000, sampler: 512 },
-  medium: { pixelRatio: 1.5, shadows: true, shadowMap: 2048, shadowHalf: 260, trees: 7000, sampler: 1024 },
-  high: { pixelRatio: 2, shadows: true, shadowMap: 4096, shadowHalf: 420, trees: 18000, sampler: 2048 },
-}[quality];
+  low: { look: 'basic', renderScale: 0.8, maxRatio: 1, shadowMap: 1024, shadowHalf: 200, trees: 2500, treeShadows: false, clouds: 15, sampler: 512 },
+  medium: { look: 'atmosphere', renderScale: 1, maxRatio: 1, shadowMap: 2048, shadowHalf: 300, trees: 6000, treeShadows: false, clouds: 30, sampler: 1024 },
+  high: { look: 'full', renderScale: 1, maxRatio: 1.25, shadowMap: 2048, shadowHalf: 420, trees: 14000, treeShadows: true, clouds: 0, sampler: 2048 },
+}[quality] as { look: LookLevel; renderScale: number; maxRatio: number; shadowMap: number; shadowHalf: number; trees: number; treeShadows: boolean; clouds: number; sampler: number };
 
 const debug = { errors: [] as string[], frames: 0 };
 window.addEventListener('error', (e) => debug.errors.push(String(e.message)));
 window.addEventListener('unhandledrejection', (e) => debug.errors.push(String(e.reason)));
 
 const canvas = $<HTMLCanvasElement>('#scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality === 'low', logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.pixelRatio));
+// 対数の深度バッファはシェーダーが深度を書くので隠れた画素を飛ばせず重い。ふつうの深度にして手前の面を近くから切る
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.maxRatio) * Q.renderScale);
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = Q.shadows;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.3, 140000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 90000);
 camera.position.set(0, 400, 900);
 // 太陽の位置は日時から決める（10 月下旬の午後 3 時半、南西からの低い光）
 const look = createLook(renderer, scene, camera, {
-  realistic: quality !== 'low',
-  shadows: Q.shadows,
+  level: Q.look,
   shadowMap: Q.shadowMap,
-  halfResAO: quality === 'medium',
+  cascades: 3,
+  shadowFar: 6000,
   origin: { lat: 36.106, lon: 140.102, height: 25 },
   date: new Date('2026-10-27T15:30:00+09:00'),
 });
@@ -196,12 +197,13 @@ async function init() {
   scene.add(buildBuildings(world, sampler));
   setLoading(0.85, '木を植えています…');
   await tick();
-  scene.add(buildTrees(world, Q.trees));
+  scene.add(buildTrees(world, Q.trees, Q.treeShadows));
   water = buildWater(world);
   scene.add(water);
   scene.add(buildAirfield(world));
   // 物理ベースの空は明るいので、光の当たらない雲を空に負けない明るさにする
-  scenery = buildScenery(SCENERY, { world, wind: () => currentWind, cloudBrightness: quality === 'low' ? 1 : 1.7 });
+  const sceneryDefs = SCENERY.flatMap((d) => (d.kind !== 'clouds' ? [d] : look.volumetricClouds ? [] : [{ ...d, params: { ...d.params, count: Q.clouds } }]));
+  scenery = buildScenery(sceneryDefs, { world, wind: () => currentWind, cloudBrightness: quality === 'low' ? 1 : 1.7 });
   for (const s of scenery) scene.add(s.object);
   setLoading(1, 'できました');
 
@@ -660,10 +662,22 @@ function frame(now: number) {
     camera.position.add(new THREE.Vector3((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k));
   }
   updateSun();
+  updateNearPlane();
   look.render();
 }
 
 /** 影を落とす範囲を、いま見ている所に合わせて動かす（ちらつかないよう影の画素単位でそろえる） */
+/** 高いところから見るときは手前を切る距離を遠くし、遠くの奥行きの精度を上げる（地面や水面のちらつき防止） */
+function updateNearPlane() {
+  if (!world) return;
+  const h = camera.position.y - world.terrainHeight(camera.position.x, camera.position.z);
+  const near = THREE.MathUtils.clamp(h * 0.01, 0.5, 6);
+  if (Math.abs(near - camera.near) > camera.near * 0.1) {
+    camera.near = near;
+    camera.updateProjectionMatrix();
+  }
+}
+
 /** 影を落とす範囲を、いま見ている所に合わせる。高く飛ぶほど広く */
 function updateSun() {
   let half = Q.shadowHalf;

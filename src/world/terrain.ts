@@ -699,7 +699,7 @@ function addGable(roof: GeoBuf, wall: GeoBuf, r: ReturnType<typeof minRect>, eav
   roof.tri(corners[0], corners[2], corners[3], [0, 0], [1, 1], [0, 1], dark, under);
 }
 
-export function buildTrees(world: World, maxTrees = 14000): THREE.Group {
+export function buildTrees(world: World, maxTrees = 14000, castShadow = true): THREE.Group {
   const rand = rng(7);
   const woods = world.obstacles.filter((o) => o.kind === 'tree');
   const areas = woods.map((o) => Math.abs(THREE.ShapeUtils.area(o.poly.map(([x, z]) => new THREE.Vector2(x, z)))));
@@ -722,15 +722,15 @@ export function buildTrees(world: World, maxTrees = 14000): THREE.Group {
 
   const broad = mergeSimple(
     [
-      lumpy(new THREE.IcosahedronGeometry(4.2, 2), 0.9, 1).translate(0, 9.5, 0),
-      lumpy(new THREE.IcosahedronGeometry(3.2, 1), 0.7, 2).translate(2.0, 8.0, 1.0),
-      lumpy(new THREE.IcosahedronGeometry(3.0, 1), 0.7, 3).translate(-1.8, 8.4, -1.2),
+      lumpy(new THREE.IcosahedronGeometry(4.2, 1), 0.9, 1).translate(0, 9.5, 0),
+      lumpy(new THREE.IcosahedronGeometry(3.2, 0), 0.7, 2).translate(2.0, 8.0, 1.0),
+      lumpy(new THREE.IcosahedronGeometry(3.0, 0), 0.7, 3).translate(-1.8, 8.4, -1.2),
     ],
   );
   const conifer = mergeSimple([
-    lumpy(new THREE.ConeGeometry(3.2, 6, 9, 2), 0.45, 4).translate(0, 7.5, 0),
-    lumpy(new THREE.ConeGeometry(2.5, 5, 9, 2), 0.4, 5).translate(0, 10.5, 0),
-    lumpy(new THREE.ConeGeometry(1.6, 3.6, 8, 1), 0.3, 6).translate(0, 13.2, 0),
+    lumpy(new THREE.ConeGeometry(3.2, 6, 7, 1), 0.45, 4).translate(0, 7.5, 0),
+    lumpy(new THREE.ConeGeometry(2.5, 5, 7, 1), 0.4, 5).translate(0, 10.5, 0),
+    lumpy(new THREE.ConeGeometry(1.6, 3.6, 6, 1), 0.3, 6).translate(0, 13.2, 0),
   ]);
   const trunk = new THREE.CylinderGeometry(0.28, 0.45, 7, 6).translate(0, 3.5, 0);
   const leafTex = noiseTexture(9, 128, true);
@@ -762,7 +762,7 @@ export function buildTrees(world: World, maxTrees = 14000): THREE.Group {
   meshA.count = a;
   meshB.count = b;
   for (const im of [meshA, meshB, meshT]) {
-    im.castShadow = true;
+    im.castShadow = castShadow;
     im.receiveShadow = true;
   }
   group.add(meshA, meshB, meshT);
@@ -857,7 +857,7 @@ export function buildWater(world: World): THREE.Mesh {
     const shape = new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x, -z)));
     const g = new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2);
     const [cx, cz] = poly[0];
-    g.translate(0, world.terrainHeight(cx, cz) + 0.4, 0);
+    g.translate(0, world.terrainHeight(cx, cz) + 0.8, 0);
     const ng = g.index ? g.toNonIndexed() : g;
     pos.push(...(ng.attributes.position.array as Float32Array));
   }

@@ -116,7 +116,15 @@ npm test           # 型チェック・ユニットテスト・ビルド
 npm run test:e2e   # ブラウザでの通しテスト
 ```
 
-描画の重さは `?quality=low`・`medium`・`high` で切り替えられます（省略時はスマホ medium、パソコン high）。
+描画の重さは格納庫の「設定」で低・中・高から選べます（最初はスマホが中、パソコンが高）。
+
+| | 高 | 中 | 低 |
+| --- | --- | --- | --- |
+| 空と光 | 物理ベースの大気・空気遠近 | 物理ベースの大気・空気遠近 | 簡単な空と霧 |
+| 雲 | 立体の雲 | 板の雲 | 板の雲（少なめ） |
+| 影 | 遠くまで（カスケード） | 自機のまわり | なし |
+| 接地の暗さ（AO） | あり | なし | なし |
+| 木 | 多い・影あり | ふつう | 少ない |
 
 ## 集めるデータ
 
@@ -135,6 +143,7 @@ npm run test:e2e   # ブラウザでの通しテスト
 - 標高：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)の標高タイル。リポジトリには含めず、遊ぶたびに国土地理院から読み込み、ゲームの中で地形に加工しています
 - 航空写真：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)の地理院タイル（全国最新写真（シームレス））を加工して作成（撮影時期の違う写真の継ぎ目と色をならしています）
 - 建物・森・水域・建物の名前：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
+- 立体の雲（描画「高」）：[three-geospatial](https://github.com/takram-design-engineering/three-geospatial)（MIT）の雲のテクスチャ（`public/clouds/`）。ブルーノイズのテクスチャは遊ぶときに同プロジェクトから読み込みます
 - 滑走路と発射台は架空のものです
 
 このゲームは筑波大学とは関係のない、非公式のファンゲームです。
