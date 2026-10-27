@@ -8,6 +8,8 @@ export interface SceneryContext {
   world: World;
   /** 今の風（m/s） */
   wind: () => Vec3;
+  /** 雲の明るさの倍率 */
+  cloudBrightness?: number;
 }
 
 export interface SceneryObject {
@@ -122,6 +124,7 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
     const r = rng(num(def.params.seed, 1));
     const count = num(def.params.count, 30);
     const mat = new THREE.SpriteMaterial({ map: getCloudTexture(), color: 0xf6f8fa, transparent: true, opacity: 0.8, depthWrite: false, fog: true, toneMapped: false });
+    mat.color.multiplyScalar(ctx.cloudBrightness ?? 1);
     for (let i = 0; i < count; i++) {
       const cl = new THREE.Group();
       const puffs = 3 + Math.floor(r() * 4);

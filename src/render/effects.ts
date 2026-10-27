@@ -180,6 +180,8 @@ export class Explosion {
   private decals: THREE.Mesh[] = [];
   /** カメラを揺らす強さ（main で読む） */
   shake = 0;
+  /** 火の明るさの倍率。明暗の幅が広い描画（中・高）では大きくして光らせる */
+  brightness = 1;
 
   constructor() {
     this.group.add(this.flash);
@@ -279,7 +281,7 @@ export class Explosion {
           p.obj.scale.addScalar(p.grow * dt);
           const m = p.mat as THREE.SpriteMaterial;
           // 白っぽい黄 → 橙 → 暗い赤へ
-          m.color.setHSL(0.11 - t * 0.09, 1, 0.75 - t * 0.5);
+          m.color.setHSL(0.11 - t * 0.09, 1, 0.75 - t * 0.5).multiplyScalar(this.brightness * (1 - t * 0.6));
           m.opacity = Math.max(0, Math.min(1, p.life / p.max) * 1.2);
           break;
         }

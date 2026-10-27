@@ -1,6 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
-import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { createLook } from './render/look';
 import { EVOLUTION_LOG, GENERATION, SCENERY, fuelById, modeById, passengerById, vehicleById } from './content/index';
 import type { PassengerDef } from './content/types';
 import { AudioEngine } from './audio/sound';
@@ -41,62 +41,28 @@ window.addEventListener('error', (e) => debug.errors.push(String(e.message)));
 window.addEventListener('unhandledrejection', (e) => debug.errors.push(String(e.reason)));
 
 const canvas = $<HTMLCanvasElement>('#scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality === 'low', logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.pixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.72;
 renderer.shadowMap.enabled = Q.shadows;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.3, 140000);
 camera.position.set(0, 400, 900);
-const HAZE = new THREE.Color(0xb4c6d6);
-scene.fog = new THREE.FogExp2(HAZE, 0.00005);
-
-// 空。太陽は南西のやや高い位置（午後の光）
-const sky = new Sky();
-sky.scale.setScalar(120000);
-const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(215));
-const su = sky.material.uniforms;
-su.turbidity.value = 5.5;
-su.rayleigh.value = 1.6;
-su.mieCoefficient.value = 0.005;
-su.mieDirectionalG.value = 0.82;
-su.sunPosition.value.copy(sunDir);
-scene.add(sky);
-
-const pmrem = new THREE.PMREMGenerator(renderer);
-const envScene = new THREE.Scene();
-const envSky = new Sky();
-envSky.scale.setScalar(1000);
-Object.assign(envSky.material.uniforms.sunPosition.value, sunDir);
-for (const k of ['turbidity', 'rayleigh', 'mieCoefficient', 'mieDirectionalG'] as const) envSky.material.uniforms[k].value = su[k].value;
-envScene.add(envSky);
-envScene.add(new THREE.Mesh(new THREE.CircleGeometry(900, 16).rotateX(-Math.PI / 2).translate(0, -10, 0), new THREE.MeshBasicMaterial({ color: 0x4d5a3d })));
-scene.environment = pmrem.fromScene(envScene, 0.02).texture;
-scene.environmentIntensity = 0.55;
-
-scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x4a5236, 0.7));
-const sunLight = new THREE.DirectionalLight(0xfff0dc, 2.6);
-sunLight.castShadow = Q.shadows;
-const SHADOW_HALF = Q.shadowHalf;
-sunLight.shadow.mapSize.set(Q.shadowMap, Q.shadowMap);
-const sc = sunLight.shadow.camera;
-sc.left = -SHADOW_HALF;
-sc.right = SHADOW_HALF;
-sc.top = SHADOW_HALF;
-sc.bottom = -SHADOW_HALF;
-sc.near = 10;
-sc.far = 5000;
-sunLight.shadow.bias = -0.0004;
-sunLight.shadow.normalBias = 0.6;
-scene.add(sunLight, sunLight.target);
+// 太陽の位置は日時から決める（10 月下旬の午後 3 時半、南西からの低い光）
+const look = createLook(renderer, scene, camera, {
+  realistic: quality !== 'low',
+  shadows: Q.shadows,
+  shadowMap: Q.shadowMap,
+  halfResAO: quality === 'medium',
+  origin: { lat: 36.106, lon: 140.102, height: 25 },
+  date: new Date('2026-10-27T15:30:00+09:00'),
+});
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  look.setSize(window.innerWidth, window.innerHeight);
 });
 
 const audio = new AudioEngine();
@@ -113,6 +79,7 @@ const trail = new Trail();
 const rings = new Rings();
 const balloons = new Balloons();
 const explosion = new Explosion();
+explosion.brightness = quality === 'low' ? 1 : 5;
 const shadow = blobShadow();
 const replay = new ReplayPlayer();
 let route: THREE.Group | null = null;
@@ -214,7 +181,11 @@ async function init() {
       console.warn('標高タイルを読み込めませんでした', e);
       return flatHeights(spec);
     });
-  const [near, far] = await Promise.all([heights(file.near), heights(file.far)]);
+  const [near, far] = await Promise.all([
+    heights(file.near),
+    heights(file.far),
+    look.ready.catch((e) => console.warn('大気の計算に失敗しました', e)),
+  ]);
   setLoading(0.6, 'キャンパスを組み立てています…');
   await tick();
   world = new World({ ...file, near, far });
@@ -229,7 +200,8 @@ async function init() {
   water = buildWater(world);
   scene.add(water);
   scene.add(buildAirfield(world));
-  scenery = buildScenery(SCENERY, { world, wind: () => currentWind });
+  // 物理ベースの空は明るいので、光の当たらない雲を空に負けない明るさにする
+  scenery = buildScenery(SCENERY, { world, wind: () => currentWind, cloudBrightness: quality === 'low' ? 1 : 1.7 });
   for (const s of scenery) scene.add(s.object);
   setLoading(1, 'できました');
 
@@ -688,23 +660,24 @@ function frame(now: number) {
     camera.position.add(new THREE.Vector3((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k));
   }
   updateSun();
-  renderer.render(scene, camera);
+  look.render();
 }
 
 /** 影を落とす範囲を、いま見ている所に合わせて動かす（ちらつかないよう影の画素単位でそろえる） */
+/** 影を落とす範囲を、いま見ている所に合わせる。高く飛ぶほど広く */
 function updateSun() {
-  if (screen === 'flying' || screen === 'result') {
-    if (model) focus.copy(model.group.position);
+  let half = Q.shadowHalf;
+  if ((screen === 'flying' || screen === 'result') && model) {
+    focus.copy(model.group.position);
+    const alt = world ? focus.y - world.terrainHeight(focus.x, focus.z) : 0;
+    half = THREE.MathUtils.clamp(Q.shadowHalf * 0.6 + alt * 1.5, Q.shadowHalf * 0.6, Q.shadowHalf * 3);
   } else if (screen === 'hangar' && previewModel) {
     focus.copy(previewModel.group.position);
   } else {
     focus.set(camera.position.x * 0.5, 30, camera.position.z * 0.5 + 100);
+    half = Q.shadowHalf * 3;
   }
-  const texel = (SHADOW_HALF * 2) / sunLight.shadow.mapSize.x;
-  const fx = Math.round(focus.x / texel) * texel;
-  const fz = Math.round(focus.z / texel) * texel;
-  sunLight.target.position.set(fx, focus.y, fz);
-  sunLight.position.set(fx + sunDir.x * 2000, focus.y + sunDir.y * 2000, fz + sunDir.z * 2000);
+  look.update(focus, half);
 }
 
 function poseModel(m: VehicleModel, pos: THREE.Vector3 | { x: number; y: number; z: number }, yaw: number, pitch: number, roll: number, throttle: number, dt: number, idle: boolean) {

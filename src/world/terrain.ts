@@ -820,6 +820,37 @@ function pointIn(x: number, z: number, poly: [number, number][]) {
   return inside;
 }
 
+/** さざ波の法線マップ。いくつかの正弦波を重ねた高さから作るので、継ぎ目なく繰り返せる */
+function rippleNormalMap(size: number): THREE.DataTexture {
+  const r = rng(21);
+  const waves = Array.from({ length: 6 }, () => ({ kx: Math.round((r() - 0.5) * 12), ky: Math.round((r() - 0.5) * 12), ph: r() * Math.PI * 2, a: 0.3 + r() * 0.7 }));
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let dx = 0;
+      let dy = 0;
+      for (const w of waves) {
+        const t = ((w.kx * x + w.ky * y) / size) * Math.PI * 2 + w.ph;
+        dx += w.a * w.kx * Math.cos(t);
+        dy += w.a * w.ky * Math.cos(t);
+      }
+      const n = new THREE.Vector3(-dx * 0.05, -dy * 0.05, 1).normalize();
+      const i = (y * size + x) * 4;
+      data[i] = (n.x * 0.5 + 0.5) * 255;
+      data[i + 1] = (n.y * 0.5 + 0.5) * 255;
+      data[i + 2] = (n.z * 0.5 + 0.5) * 255;
+      data[i + 3] = 255;
+    }
+  }
+  const t = new THREE.DataTexture(data, size, size);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.generateMipmaps = true;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
 export function buildWater(world: World): THREE.Mesh {
   const pos: number[] = [];
   for (const poly of world.data.water) {
@@ -836,13 +867,13 @@ export function buildWater(world: World): THREE.Mesh {
   for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] / 20, pos[i + 2] / 20);
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.computeVertexNormals();
-  const ripple = noiseTexture(21, 256);
+  const ripple = rippleNormalMap(256);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x223d48,
-    roughness: 0.06,
-    metalness: 0.2,
+    color: 0x1d3640,
+    roughness: 0.08,
+    metalness: 0.1,
     normalMap: ripple,
-    normalScale: new THREE.Vector2(0.25, 0.25),
+    normalScale: new THREE.Vector2(0.35, 0.35),
     envMapIntensity: 1.4,
   });
   const m = new THREE.Mesh(geo, mat);
