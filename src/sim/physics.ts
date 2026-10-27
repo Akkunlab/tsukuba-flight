@@ -121,7 +121,7 @@ function stepPlane(c: Craft, v: VehicleDef, power: number, input: Input, wind: V
     c.pitch = ease(c.pitch, targetPitch, 2, dt);
     c.speed += (thrust - drag - G * Math.sin(c.pitch) * 0.7) * dt;
     c.speed = clamp(c.speed, 0, v.maxSpeed * 1.4);
-    c.sink = ease(c.sink, (1 - lift) * 14, 1.5, dt);
+    c.sink = ease(c.sink, (1 - lift) * 45, 0.8, dt);
   }
   const fw = forward(c.yaw, c.pitch);
   const air = c.onGround ? 0 : 1;
@@ -136,17 +136,22 @@ function stepPlane(c: Craft, v: VehicleDef, power: number, input: Input, wind: V
 
 function stepHover(c: Craft, v: VehicleDef, power: number, input: Input, wind: Vec3, groundY: number, dt: number) {
   const hasFuel = c.fuel > 0;
-  const lift = hasFuel ? applyDeadzone((c.throttle - 0.5) * 2, 0.12) : -1.5;
-  const targetVy = lift * v.climbRate * (lift > 0 ? power : 1);
-  c.vel.y = ease(c.vel.y, targetVy, 2.5, dt);
+  if (hasFuel) {
+    const lift = applyDeadzone((c.throttle - 0.5) * 2, 0.12);
+    c.vel.y = ease(c.vel.y, lift * v.climbRate * (lift > 0 ? power : 1), 2.5, dt);
+  } else {
+    // 燃料切れは自由落下（空気抵抗で秒速 50m くらいまで）。機体はゆっくり回りながら落ちる
+    c.vel.y += (-G - c.vel.y * Math.abs(c.vel.y) * 0.004) * dt;
+    c.roll += dt * 0.9;
+  }
   if (c.onGround && c.vel.y < 0) c.vel.y = 0;
   const airborne = !c.onGround;
   if (airborne || c.vel.y > 0) c.yaw += input.x * v.turnRate * dt;
   const targetSpeed = airborne && hasFuel ? input.y * v.maxSpeed * Math.min(power, 1.3) : 0;
   const prev = c.speed;
-  c.speed = ease(c.speed, targetSpeed, v.accel / Math.max(v.maxSpeed, 1) * 2, dt);
+  c.speed = ease(c.speed, targetSpeed, hasFuel ? (v.accel / Math.max(v.maxSpeed, 1)) * 2 : 0.3, dt);
   c.pitch = ease(c.pitch, clamp(-(c.speed - prev) / dt * 0.05 - input.y * 0.12, -0.45, 0.45), 4, dt);
-  c.roll = ease(c.roll, input.x * 0.3 * (airborne ? 1 : 0), 4, dt);
+  if (hasFuel) c.roll = ease(c.roll, input.x * 0.3 * (airborne ? 1 : 0), 4, dt);
   const fw = forward(c.yaw, 0);
   const drift = airborne ? 0.6 : 0;
   c.vel.x = fw.x * c.speed + wind.x * drift;
@@ -176,8 +181,11 @@ function stepRocket(c: Craft, v: VehicleDef, power: number, input: Input, wind: 
     c.vel.z *= 0.9;
     c.vel.y = 0;
   }
-  // 尾翼の効果：速いと進行方向が機首の向きにそろう
-  if (!c.onGround && sp > 8) {
+  // 尾翼の効果：噴射中は進行方向が機首にそろい、噴射が止まると機首が進行方向（落ちる向き）を向く
+  if (!c.onGround && sp > 8 && thrust <= 0) {
+    c.pitch = ease(c.pitch, Math.asin(clamp(c.vel.y / sp, -1, 1)), 1.5, dt);
+    if (Math.hypot(c.vel.x, c.vel.z) > 2) c.yaw = Math.atan2(c.vel.x, -c.vel.z);
+  } else if (!c.onGround && sp > 8) {
     const t = Math.min(1, dt * 1.6);
     const s = Math.hypot(c.vel.x, c.vel.y, c.vel.z);
     c.vel.x += (nose.x * s - c.vel.x) * t;

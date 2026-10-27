@@ -25,3 +25,22 @@ describe('何もしなくても飛び立てる', () => {
     });
   }
 });
+
+describe('燃料が切れると落ちる', () => {
+  for (const v of VEHICLES) {
+    it(v.id, () => {
+      const f = new Flight(world, { vehicle: v, fuel: fuelsFor(v)[0], mode: FREE, seed: 1 });
+      for (let t = 0; t < COUNTDOWN + 60 && !(f.tookOff && f.altitude > 60); t += DT) {
+        f.update({ x: 0, y: v.model === 'plane' ? 0.3 : 0, throttle: f.phase === 'flying' ? 1 : 0 }, DT);
+      }
+      f.craft.fuel = 0;
+      let fastest = 0;
+      for (let t = 0; t < 60 && f.phase !== 'ended'; t += DT) {
+        f.update({ x: 0, y: 0, throttle: 1 }, DT);
+        fastest = Math.min(fastest, f.craft.vel.y);
+      }
+      expect(f.phase, `${v.id} が落ちきらない`).toBe('ended');
+      expect(fastest, `${v.id} の落ちる速さ`).toBeLessThan(-12);
+    });
+  }
+});
