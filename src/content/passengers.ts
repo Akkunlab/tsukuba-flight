@@ -21,7 +21,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'bees',
     name: 'ハチの群れ',
-    emoji: '🐝',
+    icon: 'bee',
     description: 'ブンブンブン。高く飛ぶほど羽音が高くなる。',
     trailColor: '#ffd21f',
     sound: {
@@ -41,7 +41,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'synth',
     name: 'シンセサイザー',
-    emoji: '🎹',
+    icon: 'synth',
     description: 'ピコピコ分散和音。速く飛ぶとテンポが上がる。',
     trailColor: '#d65bff',
     sound: {
@@ -61,7 +61,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'clarinet',
     name: 'クラリネット',
-    emoji: '🎵',
+    icon: 'clarinet',
     description: 'のんびりした旋律。奇数倍音のやわらかい音。',
     trailColor: '#5fd38a',
     sound: {
@@ -85,7 +85,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'trumpet',
     name: 'ラッパ',
-    emoji: '🎺',
+    icon: 'trumpet',
     description: 'パッパカパーン！ チェックポイントの度に元気が出る。',
     trailColor: '#ff6a3d',
     sound: {
@@ -107,7 +107,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'cat',
     name: 'ねこ',
-    emoji: '🐈',
+    icon: 'cat',
     description: 'ときどき「にゃーん」。',
     trailColor: '#ffb3c7',
     sound: {
@@ -129,7 +129,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'frogs',
     name: 'カエルの合唱',
-    emoji: '🐸',
+    icon: 'frog',
     description: '天久保池から乗ってきた。ゲコゲコ。',
     trailColor: '#7ccf3a',
     sound: {
@@ -152,7 +152,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'bell',
     name: '鐘',
-    emoji: '🔔',
+    icon: 'bell',
     description: 'キンコンカンコン。キャンパスの空に響く。',
     trailColor: '#fff3a8',
     sound: {
@@ -172,7 +172,7 @@ export const PASSENGERS: PassengerDef[] = [
   {
     id: 'wind-chime',
     name: '風鈴',
-    emoji: '🎐',
+    icon: 'chime',
     description: '速く飛ぶほど、ちりんちりん。',
     trailColor: '#a8e6ff',
     sound: {

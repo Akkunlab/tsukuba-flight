@@ -29,17 +29,22 @@ npm run evolve:pick                      # evolution/direction.json に「何を
 - 依存パッケージは増やさない（three.js と Web Audio で作る）。画像・音声ファイルも足さない（その場で合成する）
 - 最初の操作の簡単さを壊さない。「スタート！」で何もしなくても飛び立つこと（テストで確認している）
 - パソコンとスマホの両方で操作できること
+- **見た目は本物っぽく。** 絵文字は使わない（画面にも 3D にも）。アイコンは `src/ui/icons.ts` に線画の SVG を足す。3D は PBR マテリアル（`MeshStandardMaterial`）で、影を落とす・受ける
+- 「ふつうの」乗り物・燃料は 1 つずつ（小型プロペラ機・航空ガソリン）。足すなら、少し変わっていて面白いものにする
+- モードには必ず `objective`（目的を 1 文で）を書く。遊ぶ人が「何をすればいいか」がすぐ分かること
 
 ## どこを触ればよいか
 
 | やりたいこと | 触るファイル |
 | --- | --- |
-| 乗り物を足す | `src/content/vehicles.ts`、見た目は `src/render/vehicleMesh.ts` の `SHAPES` |
+| 乗り物を足す | `src/content/vehicles.ts`、見た目は `src/render/vehicleMesh.ts` の `SHAPES`、アイコンは `src/ui/icons.ts` |
 | 燃料を足す | `src/content/fuels.ts` |
 | 搭乗者（音）を足す | `src/content/passengers.ts`（`SoundRecipe` を組む） |
 | エンジン音の種類を足す | `src/content/types.ts` の `EngineKind` と `src/audio/sound.ts` の `EngineSound` |
 | 景色を足す | `src/world/scenery.ts` の `SCENERY_BUILDERS` にビルダー、`src/content/scenery.ts` にデータ |
-| モードを足す | `src/content/modes.ts`（リングは `x, z`（m）と地面からの高さ `alt`） |
+| モードを足す | `src/content/modes.ts`（リングは `x, z`（m）と地面からの高さ `alt`、風船は `targets`） |
+| アイコンを足す | `src/ui/icons.ts` の `P`（24×24 の線画。`stroke="currentColor"`） |
+| 画面（格納庫・計器・結果） | `index.html`、`src/style.css`、`src/ui/hangar.ts`、`src/main.ts` |
 | 飛び方を足す | `src/sim/physics.ts`（新しい `FlightModel`）。テストを必ず足す |
 | 検査の範囲 | `src/content/validate.ts` |
 

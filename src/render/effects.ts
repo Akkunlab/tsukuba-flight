@@ -58,7 +58,7 @@ export class Trail {
       const pt = this.pts[i];
       const age = 1 - i / Math.max(n - 1, 1);
       const w = pt.w * (1 - age * 0.3);
-      const a = (1 - age) * 0.85;
+      const a = (1 - age) * 0.55;
       const o = i * 6;
       this.positions[o] = pt.p.x - pt.side.x * w;
       this.positions[o + 1] = pt.p.y - pt.side.y * w;
@@ -180,4 +180,79 @@ export function blobShadow(): THREE.Mesh {
   );
   m.renderOrder = 1;
   return m;
+}
+
+/** 風船割りの風船。割れると小さく弾けて消える */
+export class Balloons {
+  readonly group = new THREE.Group();
+  private items: { m: THREE.Group; pop: number; base: number; phase: number }[] = [];
+  private mat = new THREE.MeshPhysicalMaterial({ color: 0xd8141e, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1, sheen: 0.3 });
+
+  set(points: { x: number; y: number; z: number }[], radius: number) {
+    for (const it of this.items) this.group.remove(it.m);
+    const body = new THREE.SphereGeometry(radius * 0.55, 24, 16).scale(1, 1.18, 1);
+    const knot = new THREE.ConeGeometry(radius * 0.08, radius * 0.12, 8).rotateX(Math.PI);
+    const stringMat = new THREE.LineBasicMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.7 });
+    this.items = points.map((p, i) => {
+      const g = new THREE.Group();
+      const b = new THREE.Mesh(body, this.mat);
+      b.castShadow = true;
+      g.add(b);
+      const k = new THREE.Mesh(knot, this.mat);
+      k.position.y = -radius * 0.68;
+      g.add(k);
+      const pts = [];
+      for (let j = 0; j <= 8; j++) pts.push(new THREE.Vector3(Math.sin(j * 0.9) * 0.4, -radius * 0.7 - j * 1.1, 0));
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), stringMat));
+      g.position.set(p.x, p.y, p.z);
+      this.group.add(g);
+      return { m: g, pop: -1, base: p.y, phase: i * 1.7 };
+    });
+  }
+
+  pop(i: number) {
+    const it = this.items[i];
+    if (it && it.pop < 0) it.pop = 0;
+  }
+
+  /** 全部まとめて元に戻す（リプレイ用）。popped[i] が true のものは消す */
+  show(popped: boolean[]) {
+    this.items.forEach((it, i) => {
+      it.pop = popped[i] ? 1 : -1;
+      it.m.visible = !popped[i];
+      it.m.scale.setScalar(1);
+    });
+  }
+
+  update(dt: number, t: number) {
+    for (const it of this.items) {
+      if (it.pop < 0) {
+        it.m.position.y = it.base + Math.sin(t * 0.8 + it.phase) * 1.2;
+        it.m.rotation.y = Math.sin(t * 0.3 + it.phase) * 0.4;
+      } else if (it.pop < 1) {
+        it.pop += dt * 6;
+        it.m.scale.setScalar(1 + it.pop * 0.6);
+        if (it.pop >= 1) it.m.visible = false;
+      }
+    }
+  }
+}
+
+/** 飛んだ道すじ（高さで色を変える線） */
+export function pathLine(points: { x: number; y: number; z: number }[], ground: (x: number, z: number) => number): THREE.Line {
+  const pos: number[] = [];
+  const col: number[] = [];
+  const c = new THREE.Color();
+  for (const p of points) {
+    pos.push(p.x, p.y, p.z);
+    const alt = p.y - ground(p.x, p.z);
+    c.setHSL(0.58 - Math.min(1, alt / 300) * 0.5, 0.9, 0.55);
+    col.push(c.r, c.g, c.b);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const line = new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, depthTest: true }));
+  line.frustumCulled = false;
+  return line;
 }

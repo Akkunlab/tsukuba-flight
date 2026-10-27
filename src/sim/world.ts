@@ -9,12 +9,24 @@ export interface HeightGrid {
   heights: number[];
 }
 
+export interface BuildingData {
+  p: [number, number][];
+  h: number;
+  n?: string;
+  t?: string;
+  lv?: number;
+  c?: string;
+  rc?: string;
+  rs?: string;
+}
+
 export interface WorldData {
   origin: { lat: number; lon: number };
   attribution: string;
   near: HeightGrid;
   far: HeightGrid;
-  buildings: { p: [number, number][]; h: number; n?: string }[];
+  /** p: 輪郭 / h: 高さ / n: 名前 / t: 種類 / lv: 階数 / c: 壁の色 / rc: 屋根の色 / rs: 屋根の形（OSM のタグ） */
+  buildings: BuildingData[];
   woods: [number, number][][];
   water: [number, number][][];
   named: { n: string; x: number; z: number }[];
@@ -24,7 +36,7 @@ export interface WorldData {
 export const RUNWAY = { x: 50, z: -1300, length: 1000, width: 45 };
 /** 飛行機の出発点（滑走路の南端、北向き） */
 export const RUNWAY_START = { x: RUNWAY.x, z: RUNWAY.z + RUNWAY.length / 2 - 40 };
-/** ヘリ・ロケットなどの発射台 */
+/** ドローン・ロケットなどの発射台 */
 export const PAD = { x: RUNWAY.x + 85, z: RUNWAY.z + RUNWAY.length / 2 - 60 };
 /** 森の木の高さ（当たり判定） */
 export const TREE_HEIGHT = 13;
@@ -39,6 +51,8 @@ export interface Obstacle {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** 元の建物データ（見た目用） */
+  src?: BuildingData;
 }
 
 export interface Hit {
@@ -173,6 +187,23 @@ function lerpAt(a: [number, number], b: [number, number], axis: 0 | 1, v: number
 
 const CELL = 64;
 
+/** 地区の名前（名前のある建物が近くにないときの呼び名） */
+export const AREAS: { n: string; x: number; z: number }[] = [
+  { n: '筑波大学 中地区', x: 0, z: -200 },
+  { n: '筑波大学 北地区', x: -100, z: -900 },
+  { n: '筑波大学 南地区', x: 150, z: 700 },
+  { n: '一の矢', x: -380, z: -1420 },
+  { n: '平砂', x: 200, z: 900 },
+  { n: '追越', x: 450, z: 450 },
+  { n: '天久保', x: 900, z: 300 },
+  { n: '附属病院のあたり', x: -83, z: 1436 },
+  { n: '春日', x: 400, z: 2200 },
+  { n: 'つくばセンター', x: 931, z: 2616 },
+  { n: '農場滑走路', x: 50, z: -1300 },
+  { n: '地図と測量の科学館のあたり', x: -1474, z: 225 },
+  { n: '筑波山', x: 420, z: -13250 },
+];
+
 export class World {
   readonly data: WorldData;
   readonly obstacles: Obstacle[] = [];
@@ -187,7 +218,7 @@ export class World {
       // 滑走路と発射台の周りに建物は置かない（データ上ほぼ無いが念のため）
       if (inRunwayArea((bb.minX + bb.maxX) / 2, (bb.minZ + bb.maxZ) / 2, 60)) continue;
       const base = this.terrainHeight((bb.minX + bb.maxX) / 2, (bb.minZ + bb.maxZ) / 2);
-      this.add({ kind: 'building', name: b.n, base, top: base + b.h, poly: b.p, ...bb });
+      this.add({ kind: 'building', name: b.n, base, top: base + b.h, poly: b.p, ...bb, src: b });
     }
     for (const w of data.woods) {
       // 滑走路と発射台の周り（離着陸の通り道）にかかる森は切り開く
@@ -276,6 +307,22 @@ export class World {
     const f = this.data.far;
     const m = 600;
     return x < f.minX + m || x > f.maxX - m || z < f.minZ + m || z > f.maxZ - m;
+  }
+
+  /** いまいる場所の呼び名（飛行中の表示用）。近くの名前のある建物 → 地区の名前 → つくば市 */
+  placeName(x: number, z: number): { name: string; near: boolean } {
+    const b = this.nearestName(x, z, 120);
+    if (b) return { name: b, near: true };
+    let best = 'つくば市';
+    let bd = 1400;
+    for (const a of AREAS) {
+      const d = Math.hypot(a.x - x, a.z - z);
+      if (d < bd) {
+        bd = d;
+        best = a.n;
+      }
+    }
+    return { name: best, near: false };
   }
 
   /** 名前のある建物で一番近いもの（墜落地点の説明用） */

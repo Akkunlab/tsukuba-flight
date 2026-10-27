@@ -3,26 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#0d1b2a" />
-    <meta name="description" content="筑波大学の上空を、いろんな乗り物と音で飛ぶ WebGL ゲーム。遊ばれるほど変わっていく。" />
+    <meta name="theme-color" content="#070c12" />
+    <meta name="description" content="筑波大学の上空を、いろんな乗り物と音で飛ぶ WebGL フライトゲーム。遊ばれるほど変わっていく。" />
     <title>つくばフライト</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛩️</text></svg>" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23070c12'/%3E%3Cpath d='M3 14h3l2-2h8l4 1.2c1 .3 1 1.6 0 1.8L16 16H7z' fill='none' stroke='%23ffb020' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M8 12 6.5 7.5h5L13 12' fill='none' stroke='%23ffb020' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E" />
   </head>
   <body>
     <canvas id="scene"></canvas>
 
     <div id="loading" class="screen">
       <div class="loading-box">
-        <div class="logo">つくばフライト</div>
+        <div class="brand"><span class="brand-en">TSUKUBA FLIGHT</span><span class="brand-ja">つくばフライト</span></div>
         <div class="bar"><div id="loading-fill"></div></div>
-        <div id="loading-text">筑波大学をつくっています…</div>
+        <div id="loading-text" class="mono">筑波大学をつくっています…</div>
       </div>
     </div>
 
     <div id="title" class="screen hidden">
       <div class="title-box">
-        <div class="logo big">つくばフライト</div>
+        <div class="brand big"><span class="brand-en">TSUKUBA FLIGHT</span><span class="brand-ja">つくばフライト</span></div>
         <div class="tagline">筑波大学の空を、好きな乗り物と好きな音で。</div>
+        <div class="stats-strip">
+          <div class="stat"><span class="k">GENERATION</span><span class="v" id="st-gen">1</span><span class="u">世代</span></div>
+          <div class="stat"><span class="k">PILOTS</span><span class="v" id="st-pilots">—</span><span class="u">人</span></div>
+          <div class="stat"><span class="k">FLIGHTS</span><span class="v" id="st-flights">—</span><span class="u">回</span></div>
+          <div class="stat"><span class="k">TOTAL SCORE</span><span class="v" id="st-score">—</span><span class="u">点</span></div>
+        </div>
         <div id="generation" class="generation"></div>
         <button id="btn-hangar" class="primary big-btn">格納庫へ</button>
         <details class="evolution">
@@ -34,62 +40,24 @@
     </div>
 
     <div id="hangar" class="screen hidden">
-      <div class="hangar-box">
-        <header class="hangar-head">
-          <button id="btn-back-title" class="ghost">←</button>
-          <h1>格納庫</h1>
-          <span class="spacer"></span>
-        </header>
-        <section>
-          <h2>1. 乗り物</h2>
-          <div id="pick-vehicle" class="cards"></div>
-          <label class="inline">機体の色 <input type="color" id="vehicle-color" /> <button id="vehicle-color-reset" class="ghost small">元に戻す</button></label>
-        </section>
-        <section>
-          <h2>2. 燃料</h2>
-          <div id="pick-fuel" class="cards"></div>
-        </section>
-        <section>
-          <h2>3. 一緒に乗せる（3 つまで）</h2>
-          <div id="pick-passenger" class="cards"></div>
-          <button id="btn-new-passenger" class="ghost">＋ 自分で音をつくる</button>
-        </section>
-        <section>
-          <h2>4. 軌跡</h2>
-          <div class="trail-row">
-            <label><input type="radio" name="trail-mode" value="auto" checked /> おまかせ（燃料と音で色が変わる）</label>
-            <label><input type="radio" name="trail-mode" value="custom" /> 自分で選ぶ <input type="color" id="trail-color" value="#ff4fa3" /></label>
-          </div>
-          <div class="trail-row">
-            <label><input type="radio" name="trail-style" value="ribbon" checked /> リボン</label>
-            <label><input type="radio" name="trail-style" value="rainbow" /> 虹</label>
-            <label><input type="radio" name="trail-style" value="dots" /> 点線</label>
-          </div>
-        </section>
-        <section>
-          <h2>5. モード</h2>
-          <div id="pick-mode" class="cards"></div>
-        </section>
-        <section>
-          <h2>音量</h2>
-          <div class="volumes">
-            <label>全体 <input type="range" id="vol-master" min="0" max="1" step="0.05" /></label>
-            <label>エンジン <input type="range" id="vol-engine" min="0" max="1" step="0.05" /></label>
-            <label>搭乗者 <input type="range" id="vol-passengers" min="0" max="1" step="0.05" /></label>
-          </div>
-        </section>
-        <div class="start-bar">
-          <div id="summary" class="summary"></div>
-          <button id="btn-start" class="primary big-btn">よーい、スタート！</button>
-        </div>
-      </div>
+      <header class="hg-top">
+        <button id="btn-back-title" class="icon-btn" title="タイトルへ"></button>
+        <div class="hg-title"><span class="k">HANGAR</span><span>格納庫</span></div>
+        <nav id="hg-tabs" class="hg-tabs"></nav>
+      </header>
+      <aside class="hg-list"><div id="hg-items" class="items"></div><button id="btn-new-passenger" class="ghost hidden">自分で音をつくる</button></aside>
+      <section id="hg-detail" class="hg-detail"></section>
+      <footer class="hg-bottom">
+        <div id="summary" class="loadout"></div>
+        <button id="btn-start" class="primary big-btn">よーい、スタート！</button>
+      </footer>
     </div>
 
     <div id="editor" class="screen hidden modal">
-      <div class="editor-box">
-        <h2>音をつくる</h2>
+      <div class="editor-box panel">
+        <h2><span class="k">SOUND LAB</span>音をつくる</h2>
         <label>なまえ <input type="text" id="ed-name" maxlength="20" placeholder="例：ピアノのおばけ" /></label>
-        <label>アイコン <select id="ed-emoji"></select></label>
+        <div class="field"><span>アイコン</span><div id="ed-icon" class="icon-grid"></div></div>
         <label>ベース <select id="ed-preset"></select></label>
         <label>音色 <select id="ed-wave">
           <option value="sine">やわらか（サイン波）</option>
@@ -107,7 +75,7 @@
         <label>軌跡の色 <input type="color" id="ed-color" value="#ff4fa3" /></label>
         <label class="inline"><input type="checkbox" id="ed-follow" checked /> 高く飛ぶほど音を高くする</label>
         <div class="editor-actions">
-          <button id="ed-preview" class="ghost">▶ 試聴</button>
+          <button id="ed-preview" class="ghost">試聴</button>
           <button id="ed-delete" class="ghost danger">削除</button>
           <span class="spacer"></span>
           <button id="ed-cancel" class="ghost">やめる</button>
@@ -117,44 +85,56 @@
     </div>
 
     <div id="hud" class="hidden">
-      <div class="hud-top">
-        <div class="hud-cell"><span class="hud-label">速さ</span><span id="hud-speed">0</span><small>km/h</small></div>
-        <div class="hud-cell"><span class="hud-label">高さ</span><span id="hud-alt">0</span><small>m</small></div>
-        <div class="hud-cell"><span class="hud-label">時間</span><span id="hud-time">0:00</span></div>
-        <div class="hud-cell" id="hud-cp-cell"><span class="hud-label">リング</span><span id="hud-cp">0/0</span></div>
+      <div class="hud-sit panel">
+        <div class="row"><span class="k">LOCATION</span><span id="hud-place">—</span></div>
+        <div class="row"><span class="k">STATUS</span><span id="hud-status">—</span></div>
+        <div class="row"><span class="k">HEADING</span><span id="hud-heading" class="mono">—</span></div>
+        <div class="row"><span class="k">WIND</span><span id="hud-wind">—</span></div>
+        <div class="row fuel-row"><span class="k">FUEL</span><span class="fuel"><span class="fuel-bar"><span id="hud-fuel"></span></span><span id="hud-fuel-pct" class="mono">100%</span><span class="k">THR</span><span id="hud-thr" class="mono">0%</span></span></div>
       </div>
-      <div class="hud-fuel"><span class="hud-label">燃料</span><div class="fuel-bar"><div id="hud-fuel"></div></div></div>
-      <div id="hud-target" class="hud-target"><div id="hud-arrow">▲</div><div id="hud-target-text"></div></div>
+      <div class="hud-obj panel">
+        <div class="obj-head"><span id="hud-mode" class="k"></span><span id="hud-time" class="mono">0:00</span></div>
+        <div id="hud-objective" class="obj-text"></div>
+        <div id="hud-target" class="obj-target"><span id="hud-arrow" class="arrow"></span><span id="hud-target-text"></span></div>
+      </div>
+      <div class="hud-speed box"><span class="k">SPD</span><span id="hud-speed" class="mono big">0</span><span class="u">km/h</span></div>
+      <div class="hud-alt box"><span class="k">ALT</span><span id="hud-alt" class="mono big">0</span><span class="u">m</span><span id="hud-vs" class="mono vs">0.0</span></div>
       <div id="hud-message" class="hud-message"></div>
-      <div id="hud-count" class="hud-count"></div>
+      <div id="hud-count" class="hud-count mono"></div>
       <div class="hud-buttons">
-        <button id="btn-camera" class="round" title="カメラ (C)">🎥</button>
-        <button id="btn-mute" class="round" title="音 (M)">🔊</button>
-        <button id="btn-pause" class="round" title="一時停止 (P)">⏸</button>
+        <button id="btn-camera" class="icon-btn" title="カメラ (C)"></button>
+        <button id="btn-mute" class="icon-btn" title="音 (M)"></button>
+        <button id="btn-pause" class="icon-btn" title="一時停止 (P)"></button>
       </div>
       <div id="help" class="help">↑↓←→ 操縦 ／ W・S スロットル ／ C カメラ ／ P 一時停止</div>
       <div id="stick-zone"></div>
       <div id="stick-base"><div id="stick-knob"></div></div>
-      <div id="throttle"><div id="throttle-fill"></div><span>スロットル</span></div>
+      <div id="throttle"><div id="throttle-fill"></div><span>THR</span></div>
     </div>
 
     <div id="pause" class="screen hidden modal">
-      <div class="result-box">
-        <h2>一時停止</h2>
+      <div class="result-box panel">
+        <h2><span class="k">PAUSED</span>一時停止</h2>
         <button id="btn-resume" class="primary">つづける</button>
         <button id="btn-quit" class="ghost">やめて格納庫へ</button>
       </div>
     </div>
 
-    <div id="result" class="screen hidden modal">
-      <div class="result-box">
-        <div id="result-emoji" class="result-emoji"></div>
-        <h2 id="result-title"></h2>
-        <div id="result-cause" class="result-cause"></div>
-        <div id="result-score" class="result-score"></div>
+    <div id="result" class="hidden">
+      <div class="result-box panel">
+        <div class="result-head"><div id="result-icon" class="result-icon"></div><div><div class="k" id="result-k">DEBRIEF</div><h2 id="result-title"></h2><div id="result-cause" class="result-cause"></div></div></div>
+        <div id="result-score" class="result-score mono"></div>
+        <div id="result-best" class="result-best"></div>
         <dl id="result-stats" class="result-stats"></dl>
-        <button id="btn-retry" class="primary">もう一度</button>
-        <button id="btn-to-hangar" class="ghost">格納庫へ</button>
+        <div class="result-actions">
+          <button id="btn-retry" class="primary">もう一度</button>
+          <button id="btn-to-hangar" class="ghost">格納庫へ</button>
+        </div>
+      </div>
+      <div class="replay-bar panel">
+        <span class="k">REPLAY</span><span id="replay-cam" class="mono"></span>
+        <button id="btn-replay-cam" class="ghost small">カメラ切替</button>
+        <button id="btn-replay-panel" class="ghost small">結果を隠す</button>
       </div>
     </div>
 

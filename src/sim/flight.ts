@@ -10,7 +10,7 @@ export const RING_RADIUS = 38;
 export const COUNTDOWN = 3;
 
 export interface FlightEvent {
-  type: 'countdown' | 'start' | 'takeoff' | 'checkpoint' | 'allCheckpoints' | 'touchdown' | 'end' | 'warning';
+  type: 'countdown' | 'start' | 'takeoff' | 'checkpoint' | 'allCheckpoints' | 'pop' | 'allTargets' | 'touchdown' | 'end' | 'warning';
   value?: number;
   text?: string;
 }
@@ -21,8 +21,15 @@ export interface FlightStats {
   maxAlt: number;
   maxSpeed: number;
   checkpoints: number;
+  /** 割った風船の数 */
+  targets: number;
   path: [number, number, number][];
 }
+
+/** リプレイ用の記録（20 回/秒）。t, x, y, z, yaw, pitch, roll, throttle */
+export type ReplayFrame = [number, number, number, number, number, number, number, number];
+const REPLAY_HZ = 20;
+const REPLAY_MAX = 36000;
 
 export interface FlightSetup {
   vehicle: VehicleDef;
@@ -51,7 +58,12 @@ export class Flight {
   nextCheckpoint = 0;
   tookOff = false;
   wind: Vec3 = { x: 0, y: 0, z: 0 };
-  stats: FlightStats = { duration: 0, distance: 0, maxAlt: 0, maxSpeed: 0, checkpoints: 0, path: [] };
+  stats: FlightStats = { duration: 0, distance: 0, maxAlt: 0, maxSpeed: 0, checkpoints: 0, targets: 0, path: [] };
+  /** 風船の位置と、割れたかどうか */
+  readonly targets: Vec3[] = [];
+  readonly popped: boolean[] = [];
+  readonly replay: ReplayFrame[] = [];
+  private lastReplayT = -1;
   /** 地面からの高さ */
   altitude = 0;
   private settle = 0;
@@ -65,6 +77,31 @@ export class Flight {
     const start = setup.vehicle.start === 'runway' ? RUNWAY_START : PAD;
     const y = world.terrainHeight(start.x, start.z);
     this.craft = createCraft(setup.vehicle, { x: start.x, y, z: start.z }, 0);
+    if (setup.mode.targets) this.placeTargets();
+  }
+
+  /** 風船を、建物や森に埋まらず、互いに離れた場所に置く */
+  private placeTargets() {
+    const t = this.setup.mode.targets!;
+    let s = (this.setup.seed * 2654435761) >>> 0;
+    const rand = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+    const start = this.setup.vehicle.start === 'runway' ? RUNWAY_START : PAD;
+    for (let i = 0; i < t.count; i++) {
+      for (let tries = 0; tries < 80; tries++) {
+        const x = t.x + (rand() * 2 - 1) * t.spread;
+        const z = t.z + (rand() * 2 - 1) * t.spread;
+        const y = this.world.terrainHeight(x, z) + t.minAlt + rand() * (t.maxAlt - t.minAlt);
+        if (this.world.outOfBounds(x, z) || this.world.hitTest(x, y, z, t.radius + 8)) continue;
+        if (Math.hypot(x - start.x, z - start.z) < 200) continue;
+        if (this.targets.some((p) => Math.hypot(p.x - x, p.y - y, p.z - z) < 70)) continue;
+        this.targets.push({ x, y, z });
+        this.popped.push(false);
+        break;
+      }
+    }
   }
 
   get checkpoints() {
@@ -151,6 +188,25 @@ export class Flight {
       if (this.nextCheckpoint === this.checkpoints.length) ev.push({ type: 'allCheckpoints' });
     }
 
+    // 風船
+    const tr = mode.targets?.radius ?? 0;
+    for (let i = 0; i < this.targets.length; i++) {
+      if (this.popped[i]) continue;
+      const p = this.targets[i];
+      if (Math.hypot(c.pos.x - p.x, c.pos.y - p.y, c.pos.z - p.z) < tr + vehicle.radius) {
+        this.popped[i] = true;
+        this.stats.targets++;
+        ev.push({ type: 'pop', value: i });
+        if (this.stats.targets === this.targets.length) ev.push({ type: 'allTargets' });
+      }
+    }
+
+    // リプレイ
+    if (this.time - this.lastReplayT >= 1 / REPLAY_HZ && this.replay.length < REPLAY_MAX) {
+      this.lastReplayT = this.time;
+      this.recordFrame();
+    }
+
     // 着陸完了（地上で止まった）
     const horiz = Math.hypot(c.vel.x, c.vel.z);
     if (c.onGround && this.tookOff) {
@@ -208,8 +264,14 @@ export class Flight {
     this.stats.duration = Math.max(0, this.time);
     const c = this.craft;
     this.stats.path.push([Math.round(c.pos.x), Math.round(c.pos.y), Math.round(c.pos.z)]);
+    this.recordFrame();
     ev.push({ type: 'end', text: cause });
     return ev;
+  }
+
+  private recordFrame() {
+    const c = this.craft;
+    this.replay.push([this.time, c.pos.x, c.pos.y, c.pos.z, c.yaw, c.pitch, c.roll, c.throttle]);
   }
 
   quit() {
@@ -223,10 +285,11 @@ export class Flight {
 
   score(): number {
     const s = this.stats;
-    let score = s.checkpoints * 500 + Math.floor(s.distance / 20);
+    let score = s.checkpoints * 500 + s.targets * 300 + Math.floor(s.distance / 20);
     if (this.outcome === 'landed') {
       score += 1500;
       if (this.checkpoints.length > 0 && s.checkpoints === this.checkpoints.length) score += 2000;
+      if (this.targets.length > 0 && s.targets === this.targets.length) score += 2000;
       score += Math.round(this.craft.fuel * 1000);
     }
     return score;

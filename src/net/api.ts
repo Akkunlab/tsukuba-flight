@@ -6,6 +6,7 @@ const KEY_PLAYER = 'tf.player';
 const KEY_SETTINGS = 'tf.settings';
 const KEY_CUSTOM = 'tf.custom';
 const KEY_QUEUE = 'tf.queue';
+const KEY_BEST = 'tf.best';
 
 function storageGet(key: string): string | null {
   try {
@@ -61,7 +62,9 @@ export function saveSettings(s: Settings) {
 export function loadCustomPassengers(): CustomPassenger[] {
   try {
     const v = JSON.parse(storageGet(KEY_CUSTOM) ?? '[]');
-    return Array.isArray(v) ? v : [];
+    if (!Array.isArray(v)) return [];
+    // 以前の版（絵文字のアイコン）で保存したものは、音符のアイコンにする
+    return v.map((p) => (typeof p.icon === 'string' ? p : { ...p, icon: 'note', emoji: undefined }));
   } catch {
     return [];
   }
@@ -137,6 +140,42 @@ export async function sendElement(p: CustomPassenger) {
     playerId: playerId(),
     kind: 'passenger',
     name: p.name,
-    recipe: { emoji: p.emoji, trailColor: p.trailColor, sound: p.sound },
+    recipe: { icon: p.icon, trailColor: p.trailColor, sound: p.sound },
   });
+}
+
+export interface Summary {
+  pilots: number;
+  flights: number;
+  totalScore: number;
+  totalDistance: number;
+}
+
+/** みんなの合計（サーバーに届かないときは null） */
+export async function fetchSummary(): Promise<Summary | null> {
+  try {
+    const res = await fetch('/api/summary');
+    if (!res.ok) return null;
+    const v = (await res.json()) as Summary;
+    return typeof v.pilots === 'number' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** このブラウザでの自己ベスト（モードごと） */
+export function loadBest(): Record<string, number> {
+  try {
+    const v = JSON.parse(storageGet(KEY_BEST) ?? '{}');
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+export function saveBest(mode: string, score: number): boolean {
+  const b = loadBest();
+  if ((b[mode] ?? 0) >= score) return false;
+  b[mode] = score;
+  storageSet(KEY_BEST, JSON.stringify(b));
+  return true;
 }

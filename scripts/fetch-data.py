@@ -213,6 +213,16 @@ out geom tags;
             name = tags.get("name")
             if name:
                 item["n"] = name
+            # 見た目用の属性（種類・階数・壁と屋根の色・屋根の形）
+            kind = tags.get("building", "yes")
+            if kind != "yes":
+                item["t"] = kind
+            lv = tags.get("building:levels")
+            if lv and lv.replace(".", "", 1).isdigit():
+                item["lv"] = float(lv)
+            for key, short in (("building:colour", "c"), ("roof:colour", "rc"), ("roof:shape", "rs")):
+                if tags.get(key):
+                    item[short] = tags[key][:24]
             buildings.append(item)
         elif tags.get("natural") == "wood" or tags.get("landuse") == "forest":
             woods.append(poly)

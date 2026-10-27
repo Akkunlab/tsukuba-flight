@@ -12,7 +12,8 @@ test('開いて、飛び始められる', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
-  await page.goto('/');
+  // 描画の重さではなく動くかを見るので、軽い品質で開く
+  await page.goto('/?quality=low');
   await page.waitForFunction(() => window.__tf?.state().screen === 'title', null, { timeout: 90_000 });
   await page.click('#btn-hangar');
   await page.click('#btn-start');

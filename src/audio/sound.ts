@@ -203,12 +203,58 @@ class EngineSound {
         o1.connect(lp);
         o2.connect(g2).connect(lp);
         lp.connect(this.gain);
+        // 排気の「バラバラ」：ノイズを点火の周期で揺らす
+        const ex = this.src(noiseSource(ctx));
+        const exf = ctx.createBiquadFilter();
+        exf.type = 'bandpass';
+        exf.Q.value = 0.9;
+        const exg = ctx.createGain();
+        exg.gain.value = 0.2;
+        const fire = this.src(ctx.createOscillator());
+        fire.type = 'square';
+        const fireDepth = ctx.createGain();
+        fireDepth.gain.value = 0.18;
+        fire.connect(fireDepth).connect(exg.gain);
+        ex.connect(exf).connect(exg).connect(this.gain);
         this.update_ = (s) => {
           const f = (38 + s.throttle * 85) * p;
           set(o1.frequency, f);
           set(o2.frequency, f * 2.01);
+          set(fire.frequency, f / 2);
+          set(exf.frequency, 180 + s.throttle * 420);
           set(lp.frequency, 400 + s.throttle * 900);
           set(this.gain.gain, 0.18 + s.throttle * 0.4);
+        };
+        break;
+      }
+      case 'pedal': {
+        // 大きなプロペラがゆっくり空気を切る音と、チェーンのカチカチ
+        const n = this.src(noiseSource(ctx));
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 500;
+        const am = ctx.createGain();
+        const lfo = this.src(ctx.createOscillator());
+        const depth = ctx.createGain();
+        depth.gain.value = 0.4;
+        lfo.connect(depth).connect(am.gain);
+        n.connect(lp).connect(am).connect(this.gain);
+        const n2 = this.src(noiseSource(ctx));
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 4000;
+        const tick = ctx.createGain();
+        tick.gain.value = 0;
+        const tickLfo = this.src(ctx.createOscillator());
+        tickLfo.type = 'square';
+        const tickDepth = ctx.createGain();
+        tickDepth.gain.value = 0.05;
+        tickLfo.connect(tickDepth).connect(tick.gain);
+        n2.connect(hp).connect(tick).connect(this.gain);
+        this.update_ = (s) => {
+          set(lfo.frequency, (1.5 + s.throttle * 2.5) * p);
+          set(tickLfo.frequency, (6 + s.throttle * 10) * p);
+          set(this.gain.gain, 0.12 + s.throttle * 0.3);
         };
         break;
       }

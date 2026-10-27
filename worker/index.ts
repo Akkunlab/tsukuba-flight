@@ -70,6 +70,19 @@ export async function handleApi(req: Request, env: Env): Promise<Response> {
       return json({ elements: results.map((r) => ({ ...r, recipe: JSON.parse(r.recipe) })) });
     }
 
+    // タイトル画面に出す、みんなの合計
+    if (path === '/api/summary' && req.method === 'GET') {
+      const row = await env.DB.prepare(
+        'SELECT COUNT(DISTINCT player_id) AS pilots, COUNT(*) AS flights, COALESCE(SUM(score), 0) AS total, COALESCE(SUM(distance_m), 0) AS distance FROM flights',
+      ).first<{ pilots: number; flights: number; total: number; distance: number }>();
+      return json({
+        pilots: Number(row?.pilots ?? 0),
+        flights: Number(row?.flights ?? 0),
+        totalScore: Number(row?.total ?? 0),
+        totalDistance: Math.round(Number(row?.distance ?? 0)),
+      });
+    }
+
     if (path === '/api/stats' && req.method === 'GET') {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 14) || 14));
       const since = Date.now() - days * 86400_000;

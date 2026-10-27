@@ -4,7 +4,7 @@ import type { FuelDef, ModeDef, PassengerDef, SceneryDef, SoundRecipe, VehicleDe
 
 const WAVES = ['sine', 'square', 'sawtooth', 'triangle', 'noise'];
 const MODELS = ['plane', 'hover', 'rocket', 'balloon'];
-const ENGINES = ['jet', 'prop', 'rotor', 'multirotor', 'rocket', 'burner', 'hiss', 'whoosh', 'none'];
+const ENGINES = ['jet', 'prop', 'rotor', 'multirotor', 'rocket', 'burner', 'hiss', 'whoosh', 'pedal', 'none'];
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
@@ -96,7 +96,7 @@ export function validatePassenger(p: PassengerDef): string[] {
   const w = `passenger ${p.id}`;
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(p.id)) e.push(`${w}: id は英小文字・数字・ハイフン`);
   str(e, `${w}.name`, p.name, 30);
-  str(e, `${w}.emoji`, p.emoji, 16);
+  if (typeof p.icon !== 'string' || !ID.test(p.icon)) e.push(`${w}.icon: アイコンの id であること`);
   if (!COLOR.test(p.trailColor)) e.push(`${w}.trailColor: #rrggbb`);
   return e.concat(validateSound(p.sound, `${w}.sound`));
 }
@@ -108,6 +108,10 @@ export function validateMode(m: ModeDef): string[] {
   str(e, `${w}.name`, m.name, 60);
   finite(e, `${w}.timeLimit`, m.timeLimit);
   finite(e, `${w}.wind`, m.wind);
+  if (m.targets) {
+    for (const k of ['count', 'radius', 'spread', 'minAlt'] as const) positive(e, `${w}.targets.${k}`, m.targets[k]);
+    num(e, `${w}.targets.maxAlt`, m.targets.maxAlt, m.targets.minAlt, Infinity);
+  }
   m.checkpoints.forEach((c, i) => {
     finite(e, `${w}.checkpoints[${i}].x`, c.x, -Infinity);
     finite(e, `${w}.checkpoints[${i}].z`, c.z, -Infinity);

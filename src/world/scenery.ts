@@ -21,29 +21,28 @@ type Builder = (def: SceneryDef, ctx: SceneryContext) => SceneryObject;
 const num = (v: unknown, d: number) => (typeof v === 'number' ? v : d);
 const text = (v: unknown, d: string) => (typeof v === 'string' ? v : d);
 
-export function textSprite(label: string, opts: { color?: string; bg?: string; scale?: number } = {}): THREE.Sprite {
+export function textSprite(label: string, opts: { color?: string; scale?: number } = {}): THREE.Sprite {
   const c = document.createElement('canvas');
   const g = c.getContext('2d')!;
-  const font = 'bold 56px "Hiragino Sans", "Noto Sans JP", sans-serif';
+  const font = '600 52px "Hiragino Sans", "Noto Sans JP", sans-serif';
   g.font = font;
-  const w = Math.ceil(g.measureText(label).width) + 48;
+  const w = Math.ceil(g.measureText(label).width) + 40;
   c.width = w;
-  c.height = 88;
+  c.height = 80;
   g.font = font;
-  g.fillStyle = opts.bg ?? 'rgba(10,20,35,0.55)';
-  const r = 30;
-  g.beginPath();
-  g.roundRect(0, 0, w, 88, r);
-  g.fill();
-  g.fillStyle = opts.color ?? '#ffffff';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(label, w / 2, 46);
+  // 地図の注記のような、縁取りの文字
+  g.lineWidth = 8;
+  g.strokeStyle = 'rgba(8,14,22,0.75)';
+  g.strokeText(label, w / 2, 42);
+  g.fillStyle = opts.color ?? '#f4f7fa';
+  g.fillText(label, w / 2, 42);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
   const scale = opts.scale ?? 1;
-  s.scale.set((w / 88) * 8 * scale, 8 * scale, 1);
+  s.scale.set((w / 80) * 7 * scale, 7 * scale, 1);
   return s;
 }
 
@@ -78,10 +77,22 @@ function getCloudTexture() {
 
 export const SCENERY_BUILDERS: Record<string, Builder> = {
   /** 地名の看板（空中に浮かぶラベル） */
-  label(def) {
-    const s = textSprite(text(def.params.text, def.name), { scale: num(def.params.scale, 1.6) });
-    s.position.set(num(def.params.x, 0), num(def.params.y, 40), num(def.params.z, 0));
-    return { object: s };
+  label(def, ctx) {
+    const g = new THREE.Group();
+    const x = num(def.params.x, 0);
+    const z = num(def.params.z, 0);
+    const y = num(def.params.y, 40);
+    const s = textSprite(text(def.params.text, def.name), { scale: num(def.params.scale, 1.4) });
+    s.position.set(x, y + 4, z);
+    g.add(s);
+    // 建物から文字まで細い線を引く
+    const ground = ctx.world.terrainHeight(x, z);
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, ground + 2, z), new THREE.Vector3(x, y, z)]),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 }),
+    );
+    g.add(line);
+    return { object: g };
   },
 
   /** 吹き流し。風向きに向く */
@@ -90,14 +101,14 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
     const x = num(def.params.x, 0);
     const z = num(def.params.z, 0);
     g.position.set(x, ctx.world.terrainHeight(x, z), z);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0xdddddd }));
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 8, 6), new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.4, metalness: 0.6 }));
     pole.position.y = 4;
     g.add(pole);
     const sock = new THREE.Group();
     sock.position.y = 7.6;
     const cone = new THREE.Mesh(
       new THREE.CylinderGeometry(0.7, 0.3, 4, 10, 4, true).rotateX(Math.PI / 2).translate(0, 0, 2),
-      new THREE.MeshLambertMaterial({ color: 0xff5a1f, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({ color: 0xff5a1f, roughness: 0.8, side: THREE.DoubleSide }),
     );
     sock.add(cone);
     g.add(sock);
@@ -116,7 +127,7 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
     const g = new THREE.Group();
     const r = rng(num(def.params.seed, 1));
     const count = num(def.params.count, 30);
-    const mat = new THREE.SpriteMaterial({ map: getCloudTexture(), transparent: true, opacity: 0.85, depthWrite: false, fog: true });
+    const mat = new THREE.SpriteMaterial({ map: getCloudTexture(), color: 0xf6f8fa, transparent: true, opacity: 0.8, depthWrite: false, fog: true, toneMapped: false });
     for (let i = 0; i < count; i++) {
       const cl = new THREE.Group();
       const puffs = 3 + Math.floor(r() * 4);

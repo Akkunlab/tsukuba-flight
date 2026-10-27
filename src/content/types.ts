@@ -35,7 +35,7 @@ export interface SoundRecipe {
 }
 
 /** エンジン音の種類。audio/engine.ts に合成の実装がある */
-export type EngineKind = 'jet' | 'prop' | 'rotor' | 'multirotor' | 'rocket' | 'burner' | 'hiss' | 'whoosh' | 'none';
+export type EngineKind = 'jet' | 'prop' | 'rotor' | 'multirotor' | 'rocket' | 'burner' | 'hiss' | 'whoosh' | 'pedal' | 'none';
 
 /** 飛び方の物理モデル。sim/physics.ts に実装がある */
 export type FlightModel = 'plane' | 'hover' | 'rocket' | 'balloon';
@@ -43,7 +43,8 @@ export type FlightModel = 'plane' | 'hover' | 'rocket' | 'balloon';
 export interface VehicleDef {
   id: string;
   name: string;
-  emoji: string;
+  /** アイコン（ui/icons.ts の ICONS のキー） */
+  icon: string;
   description: string;
   model: FlightModel;
   /** 見た目（render/vehicleMesh.ts のビルダー名） */
@@ -75,7 +76,7 @@ export interface VehicleDef {
 export interface FuelDef {
   id: string;
   name: string;
-  emoji: string;
+  icon: string;
   description: string;
   /** タンク容量の倍率（大きいほど長く飛べる） */
   capacity: number;
@@ -90,7 +91,7 @@ export interface FuelDef {
 export interface PassengerDef {
   id: string;
   name: string;
-  emoji: string;
+  icon: string;
   description: string;
   sound: SoundRecipe;
   trailColor: string;
@@ -104,13 +105,31 @@ export interface CheckpointDef {
   alt: number;
 }
 
+/** 割って回る風船（的）。seed から位置を決める */
+export interface TargetsDef {
+  count: number;
+  /** 当たり判定の半径 [m] */
+  radius: number;
+  /** 散らばる範囲の中心と半径 [m] */
+  x: number;
+  z: number;
+  spread: number;
+  /** 地面からの高さの範囲 [m] */
+  minAlt: number;
+  maxAlt: number;
+}
+
 export interface ModeDef {
   id: string;
   name: string;
-  emoji: string;
+  icon: string;
   description: string;
+  /** 目的（格納庫と飛行中の画面に出す。1 文） */
+  objective: string;
   /** 順番にくぐるリング。空ならフリー飛行 */
   checkpoints: CheckpointDef[];
+  /** 割って回る風船 */
+  targets?: TargetsDef;
   /** 制限時間 [秒]。0 なら無制限 */
   timeLimit: number;
   /** 風の強さ [m/s] */
