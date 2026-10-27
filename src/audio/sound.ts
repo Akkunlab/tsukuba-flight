@@ -296,6 +296,11 @@ class EngineSound {
       }
       case 'none':
         break;
+      default: {
+        // EngineKind を足したのにここに case が無いと、型チェックで落ちる
+        const missing: never = this.kind;
+        throw new Error(`engine ${String(missing)} の音が未実装`);
+      }
     }
   }
 

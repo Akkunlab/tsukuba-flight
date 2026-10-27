@@ -1,4 +1,5 @@
 // 要素データの検査。テストと、ユーザーが作った要素の読み込み時に使う。
+// ユーザーが作る音（validateSound）は、耳や端末を守るために範囲を決めている。
 import type { FuelDef, ModeDef, PassengerDef, SceneryDef, SoundRecipe, VehicleDef } from './types';
 
 const WAVES = ['sine', 'square', 'sawtooth', 'triangle', 'noise'];
@@ -11,6 +12,13 @@ function num(errors: string[], where: string, v: unknown, min: number, max: numb
   if (typeof v !== 'number' || !Number.isFinite(v) || v < min || v > max) {
     errors.push(`${where}: ${String(v)} は ${min}〜${max} の数値であること`);
   }
+}
+// 作り手が書く要素（乗り物・燃料・モード）は上限を設けず、数として壊れていないかだけ見る
+function finite(errors: string[], where: string, v: unknown, min = 0) {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < min) errors.push(`${where}: ${String(v)} は ${min} 以上の数値であること`);
+}
+function positive(errors: string[], where: string, v: unknown) {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) errors.push(`${where}: ${String(v)} は 0 より大きい数値であること`);
 }
 function str(errors: string[], where: string, v: unknown, max = 200) {
   if (typeof v !== 'string' || v.length === 0 || v.length > max) errors.push(`${where}: 1〜${max} 文字の文字列であること`);
@@ -49,19 +57,19 @@ export function validateVehicle(v: VehicleDef, fuelIds: string[]): string[] {
   const e: string[] = [];
   const w = `vehicle ${v.id}`;
   if (!ID.test(v.id)) e.push(`${w}: id は英小文字・数字・ハイフン`);
-  str(e, `${w}.name`, v.name, 30);
+  str(e, `${w}.name`, v.name, 60);
   str(e, `${w}.description`, v.description);
   if (!MODELS.includes(v.model)) e.push(`${w}.model: 不明 ${v.model}`);
   if (!ENGINES.includes(v.engine)) e.push(`${w}.engine: 不明 ${v.engine}`);
   if (!COLOR.test(v.color)) e.push(`${w}.color: #rrggbb`);
-  num(e, `${w}.radius`, v.radius, 0.3, 30);
-  num(e, `${w}.maxSpeed`, v.maxSpeed, 1, 400);
-  num(e, `${w}.accel`, v.accel, 0.1, 60);
-  num(e, `${w}.turnRate`, v.turnRate, 0.05, 5);
-  num(e, `${w}.climbRate`, v.climbRate, 0, 60);
+  positive(e, `${w}.radius`, v.radius);
+  positive(e, `${w}.maxSpeed`, v.maxSpeed);
+  positive(e, `${w}.accel`, v.accel);
+  positive(e, `${w}.turnRate`, v.turnRate);
+  finite(e, `${w}.climbRate`, v.climbRate);
   num(e, `${w}.takeoffSpeed`, v.takeoffSpeed, 0, v.maxSpeed);
-  num(e, `${w}.fuelUse`, v.fuelUse, 0.01, 10);
-  num(e, `${w}.enginePitch`, v.enginePitch, 0.1, 5);
+  finite(e, `${w}.fuelUse`, v.fuelUse);
+  positive(e, `${w}.enginePitch`, v.enginePitch);
   if (v.model === 'plane' && v.takeoffSpeed <= 0) e.push(`${w}: plane は takeoffSpeed > 0`);
   if (v.model === 'plane' && v.start !== 'runway') e.push(`${w}: plane は滑走路から出発する`);
   if (v.fuels) {
@@ -75,10 +83,10 @@ export function validateFuel(f: FuelDef): string[] {
   const e: string[] = [];
   const w = `fuel ${f.id}`;
   if (!ID.test(f.id)) e.push(`${w}: id は英小文字・数字・ハイフン`);
-  str(e, `${w}.name`, f.name, 30);
-  num(e, `${w}.capacity`, f.capacity, 0.2, 5);
-  num(e, `${w}.power`, f.power, 0.2, 3);
-  num(e, `${w}.tone`, f.tone, 0.2, 4);
+  str(e, `${w}.name`, f.name, 60);
+  positive(e, `${w}.capacity`, f.capacity);
+  positive(e, `${w}.power`, f.power);
+  positive(e, `${w}.tone`, f.tone);
   if (!COLOR.test(f.trailColor)) e.push(`${w}.trailColor: #rrggbb`);
   return e;
 }
@@ -97,13 +105,13 @@ export function validateMode(m: ModeDef): string[] {
   const e: string[] = [];
   const w = `mode ${m.id}`;
   if (!ID.test(m.id)) e.push(`${w}: id は英小文字・数字・ハイフン`);
-  str(e, `${w}.name`, m.name, 30);
-  num(e, `${w}.timeLimit`, m.timeLimit, 0, 3600);
-  num(e, `${w}.wind`, m.wind, 0, 30);
+  str(e, `${w}.name`, m.name, 60);
+  finite(e, `${w}.timeLimit`, m.timeLimit);
+  finite(e, `${w}.wind`, m.wind);
   m.checkpoints.forEach((c, i) => {
-    num(e, `${w}.checkpoints[${i}].x`, c.x, -12000, 12000);
-    num(e, `${w}.checkpoints[${i}].z`, c.z, -12000, 12000);
-    num(e, `${w}.checkpoints[${i}].alt`, c.alt, 15, 1500);
+    finite(e, `${w}.checkpoints[${i}].x`, c.x, -Infinity);
+    finite(e, `${w}.checkpoints[${i}].z`, c.z, -Infinity);
+    positive(e, `${w}.checkpoints[${i}].alt`, c.alt);
   });
   return e;
 }

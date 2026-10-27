@@ -38,6 +38,8 @@ export interface Craft {
   /** plane の失速による沈み込み [m/s] */
   sink: number;
   stalled: boolean;
+  /** plane の離陸直後の自動上昇中か */
+  climbOut: boolean;
 }
 
 export function forward(yaw: number, pitch: number): Vec3 {
@@ -59,6 +61,7 @@ export function createCraft(v: VehicleDef, pos: Vec3, yaw: number): Craft {
     heat: 0,
     sink: 0,
     stalled: false,
+    climbOut: false,
   };
 }
 
@@ -109,6 +112,7 @@ function stepPlane(c: Craft, v: VehicleDef, power: number, input: Input, wind: V
     // （着陸後の減速中はスロットルを絞っているので、勝手に浮き上がらない）
     const assist = c.throttle > 0.5 ? 0.12 : 0;
     c.pitch = ease(c.pitch, canRotate ? Math.max(assist, input.y * 0.35) : 0, 3, dt);
+    c.climbOut = canRotate && assist > 0;
     const brake = c.throttle < 0.08 ? 5 : 0.6;
     c.speed += (thrust - drag - brake * Math.sign(c.speed)) * dt;
     if (Math.abs(c.speed) < 0.3 && thrust < 0.6) c.speed = 0;
@@ -119,7 +123,9 @@ function stepPlane(c: Craft, v: VehicleDef, power: number, input: Input, wind: V
     c.stalled = c.speed < v.takeoffSpeed * 0.8;
     c.roll = ease(c.roll, input.x * 1.0, 3, dt);
     c.yaw += v.turnRate * Math.sin(c.roll) * clamp(c.speed / v.takeoffSpeed, 0.3, 1.5) * dt;
-    let targetPitch = input.y * 0.6;
+    // 離陸直後は、スティックを下に入れるか十分な高さになるまで自動で上昇を続ける
+    if (c.climbOut && (input.y < -0.1 || c.pos.y - groundY > 40)) c.climbOut = false;
+    let targetPitch = c.climbOut ? Math.max(input.y * 0.6, 0.15) : input.y * 0.6;
     if (c.stalled) targetPitch = Math.min(targetPitch, -0.35);
     c.pitch = ease(c.pitch, targetPitch, 2, dt);
     c.speed += (thrust - drag - G * Math.sin(c.pitch) * 0.7) * dt;
