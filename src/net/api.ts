@@ -46,8 +46,8 @@ export interface Settings {
   trail: TrailSetting;
   vehicleColor: string | null;
   volumes: { master: number; engine: number; passengers: number };
-  /** 描画の重さ。auto はスマホ medium、パソコン high */
-  quality?: 'auto' | 'low' | 'medium' | 'high';
+  /** 描画の重さ。未設定ならスマホ medium、パソコン high */
+  quality?: 'low' | 'medium' | 'high';
 }
 
 export function loadSettings(): Partial<Settings> {

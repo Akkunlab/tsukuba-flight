@@ -66,7 +66,7 @@ export class Hangar {
       trail: settings.trail ?? { mode: 'auto', color: '#ff4fa3', style: 'ribbon' },
       vehicleColor: settings.vehicleColor ?? null,
       volumes: settings.volumes ?? { master: 0.8, engine: 0.7, passengers: 0.9 },
-      quality: settings.quality ?? 'auto',
+      quality: ['low', 'medium', 'high'].includes(settings.quality ?? '') ? settings.quality : matchMedia('(pointer: coarse)').matches ? 'medium' : 'high',
     };
     $('#btn-back-title').innerHTML = icon('back');
     $('#btn-new-passenger').addEventListener('click', () => this.openEditor(null));
@@ -286,8 +286,8 @@ export class Hangar {
       <div class="vol">搭乗者 <input type="range" id="vol-passengers" min="0" max="1" step="0.05" value="${v.passengers}" /></div>
       <div class="subhead">描画の重さ（重いと感じたら低く。切り替えると読み込み直します）</div>
       <div class="opts" id="quality">
-        ${(['auto', 'low', 'medium', 'high'] as const)
-          .map((q) => `<button data-v="${q}" class="${(this.settings.quality ?? 'auto') === q ? 'on' : ''}">${{ auto: '自動', low: '低', medium: '中', high: '高' }[q]}</button>`)
+        ${(['low', 'medium', 'high'] as const)
+          .map((q) => `<button data-v="${q}" class="${this.settings.quality === q ? 'on' : ''}">${{ low: '低', medium: '中', high: '高' }[q]}</button>`)
           .join('')}
       </div>
       ${this.facts([
@@ -301,7 +301,7 @@ export class Hangar {
   private bindSettingsDetail() {
     document.querySelectorAll<HTMLButtonElement>('#quality button').forEach((b) =>
       b.addEventListener('click', () => {
-        if (b.dataset.v === (this.settings.quality ?? 'auto')) return;
+        if (b.dataset.v === this.settings.quality) return;
         this.settings.quality = b.dataset.v as Settings['quality'];
         this.onChange();
         location.reload();
