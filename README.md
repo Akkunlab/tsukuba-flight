@@ -61,10 +61,15 @@ npm run test:e2e   # ブラウザでの通し確認（Playwright）
 
 ## 出典
 
-- 地形（標高）・航空写真：[国土地理院タイル](https://maps.gsi.go.jp/development/ichiran.html)
-- 建物・森・水域：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（ODbL）
-- 滑走路は架空のもの
+- 地形（標高）：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)の標高タイルを加工して作成
+- 航空写真：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)の地理院タイル（全国最新写真（シームレス））を加工して作成（撮影時期の違う写真の継ぎ目と色をならしている）
+- 建物・森・水域：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
+- 滑走路と発射台は架空のもの
+
+このゲームは筑波大学とは関係のない、非公式のファンゲームです。
 
 ## ライセンス
 
-コードは MIT。地図データはそれぞれの出典の条件に従う。
+- コード：MIT（`LICENSE`）
+- `public/data/world.json` のうち建物・森・水域・名前（OpenStreetMap 由来）：[Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/)
+- `public/data/near.jpg`・`far.jpg` と `world.json` の標高：国土地理院の利用規約に従う（[国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)）

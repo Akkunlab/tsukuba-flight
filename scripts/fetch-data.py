@@ -17,6 +17,8 @@ import urllib.parse
 import urllib.request
 
 import numpy as np
+from scipy import ndimage as ndi
+from scipy.fft import dctn, idctn
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,8 +75,8 @@ def fetch(url, cache_name):
     time.sleep(0.05)
     return data
 
-def mosaic(layer, ext, z, bbox):
-    """bbox を覆うタイルを結合し、(画像, bboxにぴったり切り出したピクセル範囲) を返す。"""
+def mosaic(layer, ext, z, bbox, fix=None):
+    """bbox を覆うタイルを結合し、bbox にぴったり切り出して返す。fix は切り出す前に画像に施す処理"""
     x0, y0 = tile_xy(bbox["north"], bbox["west"], z)
     x1, y1 = tile_xy(bbox["south"], bbox["east"], z)
     tx0, ty0, tx1, ty1 = int(x0), int(y0), int(x1), int(y1)
@@ -93,6 +95,8 @@ def mosaic(layer, ext, z, bbox):
             done += 1
             print(f"\r{layer} z{z}: {done}/{total}", end="", file=sys.stderr)
     print(file=sys.stderr)
+    if fix:
+        img = fix(img)
     crop = (
         round((x0 - tx0) * 256),
         round((y0 - ty0) * 256),
@@ -114,13 +118,99 @@ def dem_grid(z, bbox, size):
     im = Image.fromarray(v.astype(np.float32), mode="F").resize((size, size), Image.BILINEAR)
     return np.asarray(im)
 
+def seam_mask(a, chunk=256, lines_max=6):
+    """継ぎ目：画像全体を貫く直線の段差。列（行）ごとの平均色の飛びが大きい位置を候補にし、
+    256px ごとに「境目をはさんだ差が、すぐ内側どうしの差より大きいか」で継ぎ目の区間を決める"""
+    def vert(a):
+        H, W, _ = a.shape
+        col = a.mean(0)
+        d = np.abs(np.diff(col, axis=0)).sum(-1)
+        cands = []
+        for x in np.argsort(-d):
+            if len(cands) >= lines_max: break
+            if 8 < x < W - 9 and all(abs(x - c) > 16 for c in cands): cands.append(int(x))
+        mask = np.zeros((H, W - 1), bool)
+        for x in cands:
+            for y0 in range(0, H, chunk):
+                sl = slice(y0, min(H, y0 + chunk))
+                A, B = a[sl, x - 2:x + 1].mean(1), a[sl, x + 1:x + 4].mean(1)
+                A2, B2 = a[sl, x - 8:x - 5].mean(1), a[sl, x + 6:x + 9].mean(1)
+                jump = np.abs(A.mean(0) - B.mean(0)).sum()
+                base = 0.5 * (np.abs(A2.mean(0) - A.mean(0)).sum() + np.abs(B2.mean(0) - B.mean(0)).sum())
+                if jump > 0.015 and jump > 1.6 * base:
+                    mask[sl, x] = True
+        return mask
+    return vert(a), vert(a.transpose(1, 0, 2)).T
+
+
+def flatten(a, sigma_frac=0.06, strength=0.7):
+    """大きくぼかした色の平均とばらつきを全体にそろえ、季節や撮影日の違う区画の色味を寄せる"""
+    H, W, _ = a.shape
+    small = a[::8, ::8]
+    sig = max(2, int(small.shape[1] * sigma_frac))
+    mean = np.stack([ndi.gaussian_filter(small[..., c], sig, mode='reflect') for c in range(3)], -1)
+    var = np.stack([ndi.gaussian_filter(small[..., c] ** 2, sig, mode='reflect') for c in range(3)], -1) - mean ** 2
+    std = np.sqrt(np.clip(var, 1e-5, None))
+    zoom = (H / small.shape[0], W / small.shape[1], 1)
+    M = ndi.zoom(mean, zoom, order=1)[:H, :W]
+    S = ndi.zoom(std, zoom, order=1)[:H, :W]
+    gm = a.reshape(-1, 3).mean(0); gs = a.reshape(-1, 3).std(0)
+    return a + strength * (((a - M) / S * gs + gm) - a)
+
+
+def poisson(a, v, h):
+    """継ぎ目をまたぐ勾配だけを 0 にして画像を組み直す（勾配領域での合成）"""
+    gx = np.diff(a, axis=1); gy = np.diff(a, axis=0)
+    gx[v] = 0; gy[h] = 0
+    # 発散（ラプラシアン）を作り、ノイマン境界の DCT で解く
+    H, W, _ = a.shape
+    out = np.empty_like(a)
+    yy = np.arange(H)[:, None]; xx = np.arange(W)[None, :]
+    denom = (2 * np.cos(np.pi * xx / W) - 2) + (2 * np.cos(np.pi * yy / H) - 2)
+    denom[0, 0] = 1
+    for c in range(3):
+        div = np.zeros((H, W), np.float64)
+        div[:, :-1] += gx[..., c]; div[:, 1:] -= gx[..., c]
+        div[:-1, :] += gy[..., c]; div[1:, :] -= gy[..., c]
+        f = dctn(div, type=2, norm='ortho')
+        f /= denom; f[0, 0] = 0
+        u = idctn(f, type=2, norm='ortho')
+        out[..., c] = u - u.mean() + a[..., c].mean()
+    return out
+
+
+def harmonize(img):
+    """撮影時期の違う写真の継ぎ目と色味の差をならす（国土地理院の写真を加工）"""
+    a = np.asarray(img).astype(np.float64) / 255
+    v, h = seam_mask(a)
+    out = flatten(np.clip(poisson(a, v, h), 0, 1))
+    return Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8))
+
+
 def save_photo(layer_z, bbox, name, max_px):
-    img = mosaic("seamlessphoto", "jpg", layer_z, bbox)
+    img = mosaic("seamlessphoto", "jpg", layer_z, bbox, fix=harmonize)
     s = min(1.0, max_px / max(img.size))
     if s < 1.0:
         img = img.resize((round(img.size[0] * s), round(img.size[1] * s)), Image.LANCZOS)
     img.save(os.path.join(OUT, name), quality=82, optimize=True, progressive=True)
     print(f"{name}: {img.size}", file=sys.stderr)
+
+def match_far_to_near():
+    """遠景（衛星写真）の色を、重なる範囲で近景（航空写真）の色にそろえ、境目を目立たなくする"""
+    near = np.asarray(Image.open(os.path.join(OUT, "near.jpg"))).astype(np.float64) / 255
+    far_img = Image.open(os.path.join(OUT, "far.jpg"))
+    far = np.asarray(far_img).astype(np.float64) / 255
+    fh, fw, _ = far.shape
+    x0 = int((NEAR["west"] - FAR["west"]) / (FAR["east"] - FAR["west"]) * fw)
+    x1 = int((NEAR["east"] - FAR["west"]) / (FAR["east"] - FAR["west"]) * fw)
+    y0 = int((FAR["north"] - NEAR["north"]) / (FAR["north"] - FAR["south"]) * fh)
+    y1 = int((FAR["north"] - NEAR["south"]) / (FAR["north"] - FAR["south"]) * fh)
+    ov = far[y0:y1, x0:x1].reshape(-1, 3)
+    nm, ns = near.reshape(-1, 3).mean(0), near.reshape(-1, 3).std(0)
+    fm, fs = ov.mean(0), ov.std(0) + 1e-4
+    out = (far - fm) * (ns / fs) + nm
+    Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(os.path.join(OUT, "far.jpg"), quality=82, optimize=True, progressive=True)
+
 
 def bbox_meters(b):
     x0, z0 = to_xz(b["north"], b["west"])
@@ -294,10 +384,11 @@ def main():
     far = dem_grid(11, FAR, far_size)
     save_photo(17, NEAR, "near.jpg", 4096)
     save_photo(13, FAR, "far.jpg", 2048)
+    match_far_to_near()
     osm = build_osm()
     world = {
         "origin": {"lat": ORIGIN_LAT, "lon": ORIGIN_LON},
-        "attribution": "地形・航空写真: 国土地理院タイル / 建物・森・水域: © OpenStreetMap contributors (ODbL)",
+        "attribution": "地形・航空写真: 国土地理院の地理院タイルを加工して作成 / 建物・森・水域: © OpenStreetMap contributors (ODbL 1.0)",
         "near": {**bbox_meters(NEAR), "size": near_size,
                  "heights": [round(float(v), 1) for v in near.flatten()]},
         "far": {**bbox_meters(FAR), "size": far_size,

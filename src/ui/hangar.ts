@@ -287,7 +287,7 @@ export class Hangar {
         ['パソコン', '矢印キー ／ W・S ／ C'],
         ['スマホ', '左スティック ／ 右バー'],
       ])}
-      <p class="subhead">地図: 国土地理院 ／ © OpenStreetMap contributors</p>
+      <p class="subhead">地形・航空写真: 国土地理院（加工して作成） ／ 建物: © OpenStreetMap contributors ／ 筑波大学非公式</p>
     </div>`;
   }
 
