@@ -53,16 +53,6 @@ export const FUELS: FuelDef[] = [
     tone: 1.2,
   },
   {
-    id: 'water',
-    name: '水と空気',
-    icon: 'water',
-    description: 'ペットボトルロケット用。',
-    capacity: 0.9,
-    power: 1,
-    trailColor: '#bfefff',
-    tone: 1.2,
-  },
-  {
     id: 'soda',
     name: '炭酸',
     icon: 'soda',

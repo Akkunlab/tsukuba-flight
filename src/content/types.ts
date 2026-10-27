@@ -28,7 +28,7 @@ export interface SoundRecipe {
   follow?: { altitude?: number; speed?: number };
 }
 
-export type EngineKind = 'jet' | 'prop' | 'rotor' | 'multirotor' | 'rocket' | 'burner' | 'hiss' | 'whoosh' | 'pedal' | 'none';
+export type EngineKind = 'jet' | 'prop' | 'rotor' | 'multirotor' | 'rocket' | 'burner' | 'hiss' | 'whoosh' | 'pedal' | 'ufo' | 'none';
 
 export type FlightModel = 'plane' | 'hover' | 'rocket' | 'balloon';
 

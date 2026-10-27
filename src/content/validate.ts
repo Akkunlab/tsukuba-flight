@@ -4,7 +4,7 @@ import type { FuelDef, ModeDef, PassengerDef, SceneryDef, SoundRecipe, VehicleDe
 
 const WAVES = ['sine', 'square', 'sawtooth', 'triangle', 'noise'];
 const MODELS = ['plane', 'hover', 'rocket', 'balloon'];
-const ENGINES = ['jet', 'prop', 'rotor', 'multirotor', 'rocket', 'burner', 'hiss', 'whoosh', 'pedal', 'none'];
+const ENGINES = ['jet', 'prop', 'rotor', 'multirotor', 'rocket', 'burner', 'hiss', 'whoosh', 'pedal', 'ufo', 'none'];
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 

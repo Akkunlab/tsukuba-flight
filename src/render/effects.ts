@@ -134,39 +134,205 @@ export class Rings {
   }
 }
 
+function softTexture(kind: 'fire' | 'smoke' | 'scorch'): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  // ふちが不規則な、やわらかい塊を何枚も重ねる
+  for (let i = 0; i < (kind === 'scorch' ? 6 : 14); i++) {
+    const x = 64 + (Math.random() - 0.5) * 40;
+    const y = 64 + (Math.random() - 0.5) * 40;
+    const r = 18 + Math.random() * 30;
+    const grad = g.createRadialGradient(x, y, 0, x, y, r);
+    const a = kind === 'fire' ? 0.5 : kind === 'smoke' ? 0.35 : 0.5;
+    grad.addColorStop(0, `rgba(255,255,255,${a})`);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+let fireTex: THREE.Texture | null = null;
+let smokeTex: THREE.Texture | null = null;
+let scorchTex: THREE.Texture | null = null;
+
+interface Particle {
+  obj: THREE.Object3D;
+  mat: THREE.SpriteMaterial | THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
+  v: THREE.Vector3;
+  life: number;
+  max: number;
+  kind: 'fire' | 'smoke' | 'debris' | 'spark' | 'ember';
+  grow: number;
+  spin?: THREE.Vector3;
+  ground: number;
+}
+
+/** 墜落の爆発：閃光・火球・破片・火花・黒煙・残り火・焦げ跡・画面の揺れ */
 export class Explosion {
   readonly group = new THREE.Group();
-  private parts: { m: THREE.Mesh; v: THREE.Vector3; life: number }[] = [];
+  private parts: Particle[] = [];
+  private flash = new THREE.PointLight(0xffa040, 0, 400, 1.6);
+  private wrecks: { at: THREE.Vector3; ground: number; t: number; scale: number }[] = [];
+  private decals: THREE.Mesh[] = [];
+  /** カメラを揺らす強さ（main で読む） */
+  shake = 0;
 
-  burst(at: THREE.Vector3, scale: number) {
-    const fire = new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true });
-    const smoke = new THREE.MeshLambertMaterial({ color: 0x444444, transparent: true });
-    for (let i = 0; i < 40; i++) {
-      const isFire = i < 18;
-      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(scale * (0.4 + Math.random() * 0.6), 0), (isFire ? fire : smoke).clone());
-      m.position.copy(at);
-      const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.2, Math.random() - 0.5).multiplyScalar(scale * (isFire ? 14 : 6));
-      this.parts.push({ m, v, life: isFire ? 1.4 : 3.5 });
-      this.group.add(m);
-    }
+  constructor() {
+    this.group.add(this.flash);
   }
 
-  update(dt: number) {
+  burst(at: THREE.Vector3, scale: number, color: THREE.ColorRepresentation = 0xcccccc, ground = at.y - 1) {
+    fireTex ??= softTexture('fire');
+    smokeTex ??= softTexture('smoke');
+    scorchTex ??= softTexture('scorch');
+    const s = Math.max(1.5, scale);
+    this.flash.position.copy(at);
+    this.flash.intensity = 4000 * s;
+    this.shake = 1.2;
+    for (let i = 0; i < 26; i++) this.fire(at, s, 1);
+    for (let i = 0; i < 18; i++) this.smoke(at, s, true);
+    // 破片：機体の色と焦げた金属
+    const debrisMats = [new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.4 }), new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.8, metalness: 0.6 })];
+    for (let i = 0; i < 34; i++) {
+      const sz = s * (0.08 + Math.random() * 0.35);
+      const geo = Math.random() < 0.5 ? new THREE.BoxGeometry(sz, sz * 0.2, sz * 0.7) : new THREE.TetrahedronGeometry(sz * 0.6);
+      const mat = debrisMats[i % 2];
+      const m = new THREE.Mesh(geo, mat);
+      m.castShadow = true;
+      m.position.copy(at);
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.3, Math.random() - 0.5).normalize();
+      this.add({ obj: m, mat, v: dir.multiplyScalar(s * (6 + Math.random() * 14)), life: 8 + Math.random() * 4, max: 12, kind: 'debris', grow: 0, spin: new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12), ground });
+    }
+    // 火花
+    for (let i = 0; i < 60; i++) {
+      const mat = new THREE.SpriteMaterial({ color: 0xffd080, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+      const sp = new THREE.Sprite(mat);
+      sp.scale.setScalar(0.25 + Math.random() * 0.25);
+      sp.position.copy(at);
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8, Math.random() - 0.5).normalize();
+      this.add({ obj: sp, mat, v: dir.multiplyScalar(20 + Math.random() * 35), life: 0.6 + Math.random() * 0.8, max: 1.4, kind: 'spark', grow: 0, ground });
+    }
+    // 地面の焦げ跡
+    const scorch = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: scorchTex, color: 0x000000, transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }),
+    );
+    scorch.scale.setScalar(s * 9);
+    scorch.position.set(at.x, ground + 0.2, at.z);
+    this.group.add(scorch);
+    this.decals.push(scorch);
+    this.wrecks.push({ at: new THREE.Vector3(at.x, ground + 0.5, at.z), ground, t: 0, scale: s });
+  }
+
+  private add(p: Particle) {
+    this.parts.push(p);
+    this.group.add(p.obj);
+  }
+
+  private fire(at: THREE.Vector3, s: number, power: number) {
+    const mat = new THREE.SpriteMaterial({ map: fireTex, color: 0xfff0c0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+    const sp = new THREE.Sprite(mat);
+    sp.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * s, Math.random() * s * 0.5, (Math.random() - 0.5) * s));
+    sp.scale.setScalar(s * (2 + Math.random() * 2) * power);
+    sp.material.rotation = Math.random() * Math.PI * 2;
+    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.4, Math.random() - 0.5).multiplyScalar(s * 6 * power);
+    const life = (0.8 + Math.random() * 0.9) * power;
+    this.add({ obj: sp, mat, v, life, max: life, kind: 'fire', grow: s * 3 * power, ground: -Infinity });
+  }
+
+  private smoke(at: THREE.Vector3, s: number, big: boolean) {
+    const mat = new THREE.SpriteMaterial({ map: smokeTex, color: 0x1c1b1a, transparent: true, depthWrite: false, opacity: 0 });
+    const sp = new THREE.Sprite(mat);
+    sp.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * s, 0, (Math.random() - 0.5) * s));
+    sp.scale.setScalar(s * (big ? 3 : 1.6));
+    sp.material.rotation = Math.random() * Math.PI * 2;
+    const v = new THREE.Vector3((Math.random() - 0.5) * 2, 3 + Math.random() * 4, (Math.random() - 0.5) * 2).multiplyScalar(big ? s * 0.8 : 1.4);
+    const life = big ? 5 + Math.random() * 4 : 9 + Math.random() * 6;
+    this.add({ obj: sp, mat, v, life, max: life, kind: 'smoke', grow: s * (big ? 2.5 : 1.8), ground: -Infinity });
+  }
+
+  update(dt: number, wind: { x: number; z: number } = { x: 0, z: 0 }) {
+    this.shake = Math.max(0, this.shake - dt * 1.5);
+    this.flash.intensity *= Math.max(0, 1 - dt * 7);
+    // 残骸からは、しばらく炎と黒煙が出続ける
+    for (const w of this.wrecks) {
+      w.t += dt;
+      if (w.t < 22) {
+        const k = 1 - w.t / 22;
+        if (Math.random() < dt * 14 * k) this.fire(w.at, w.scale * 0.45, 0.6 + k * 0.4);
+        if (Math.random() < dt * 7) this.smoke(w.at, w.scale * 0.7, false);
+      }
+    }
+    this.wrecks = this.wrecks.filter((w) => w.t < 22);
     for (const p of this.parts) {
       p.life -= dt;
-      p.m.position.addScaledVector(p.v, dt);
-      p.v.multiplyScalar(1 - dt * 1.5);
-      p.v.y += dt * 2;
-      p.m.scale.multiplyScalar(1 + dt * 0.8);
-      (p.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, Math.min(1, p.life));
+      const t = 1 - p.life / p.max;
+      switch (p.kind) {
+        case 'fire': {
+          p.obj.position.addScaledVector(p.v, dt);
+          p.v.multiplyScalar(1 - dt * 2.5);
+          p.v.y += dt * 4;
+          p.obj.scale.addScalar(p.grow * dt);
+          const m = p.mat as THREE.SpriteMaterial;
+          // 白っぽい黄 → 橙 → 暗い赤へ
+          m.color.setHSL(0.11 - t * 0.09, 1, 0.75 - t * 0.5);
+          m.opacity = Math.max(0, Math.min(1, p.life / p.max) * 1.2);
+          break;
+        }
+        case 'smoke': {
+          p.obj.position.addScaledVector(p.v, dt);
+          p.obj.position.x += wind.x * dt * 0.8;
+          p.obj.position.z += wind.z * dt * 0.8;
+          p.v.multiplyScalar(1 - dt * 0.4);
+          p.obj.scale.addScalar(p.grow * dt * 0.6);
+          (p.mat as THREE.SpriteMaterial).opacity = Math.min(0.85, t * 6) * Math.max(0, p.life / p.max);
+          (p.mat as THREE.SpriteMaterial).rotation += dt * 0.1;
+          break;
+        }
+        case 'debris': {
+          p.v.y -= 9.8 * dt;
+          p.obj.position.addScaledVector(p.v, dt);
+          if (p.obj.position.y < p.ground + 0.1) {
+            p.obj.position.y = p.ground + 0.1;
+            p.v.y = Math.abs(p.v.y) * 0.3;
+            p.v.x *= 0.6;
+            p.v.z *= 0.6;
+            p.spin!.multiplyScalar(0.5);
+          }
+          p.obj.rotation.x += p.spin!.x * dt;
+          p.obj.rotation.y += p.spin!.y * dt;
+          p.obj.rotation.z += p.spin!.z * dt;
+          break;
+        }
+        case 'spark':
+        case 'ember': {
+          p.v.y -= 9.8 * dt;
+          p.obj.position.addScaledVector(p.v, dt);
+          (p.mat as THREE.SpriteMaterial).opacity = Math.max(0, p.life / p.max);
+          break;
+        }
+      }
     }
-    for (const p of this.parts.filter((x) => x.life <= 0)) this.group.remove(p.m);
+    for (const p of this.parts) {
+      if (p.life > 0) continue;
+      this.group.remove(p.obj);
+      if (p.kind !== 'debris') p.mat.dispose();
+    }
     this.parts = this.parts.filter((p) => p.life > 0);
   }
 
   clear() {
-    for (const p of this.parts) this.group.remove(p.m);
+    for (const p of this.parts) this.group.remove(p.obj);
+    for (const d of this.decals) this.group.remove(d);
     this.parts = [];
+    this.decals = [];
+    this.wrecks = [];
+    this.flash.intensity = 0;
+    this.shake = 0;
   }
 }
 
@@ -219,12 +385,21 @@ export class Balloons {
     if (it && it.pop < 0) it.pop = 0;
   }
 
-  show(popped: boolean[]) {
+  /** リプレイの時刻 t に合わせる。この呼び出しで新しく割れた風船の番号を返す */
+  replayAt(t: number, popTimes: number[]): number[] {
+    const popped: number[] = [];
     this.items.forEach((it, i) => {
-      it.pop = popped[i] ? 1 : -1;
-      it.m.visible = !popped[i];
-      it.m.scale.setScalar(1);
+      const done = popTimes[i] >= 0 && popTimes[i] <= t;
+      if (done && it.pop < 0) {
+        it.pop = 0;
+        popped.push(i);
+      } else if (!done && it.pop >= 0) {
+        it.pop = -1;
+        it.m.visible = true;
+        it.m.scale.setScalar(1);
+      }
     });
+    return popped;
   }
 
   update(dt: number, t: number) {

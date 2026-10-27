@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PAD, RUNWAY, World } from '../sim/world';
+import { PAD, RUNWAY, World, inShape } from '../sim/world';
 
 export interface PhotoSampler {
   colorAt(x: number, z: number): THREE.Color;
@@ -553,30 +553,33 @@ export function buildBuildings(world: World, sampler: PhotoSampler | null): THRE
     const fs = styles[style];
     const buf = walls[style];
     let along = rand() * fs.tileW;
-    for (let i = 0; i < poly.length; i++) {
-      const [ax, az] = poly[i];
-      const [bx, bz] = poly[(i + 1) % poly.length];
-      const len = Math.hypot(bx - ax, bz - az);
-      const u0 = along / fs.tileW;
-      const u1 = (along + len) / fs.tileW;
-      const v0 = (y0 - o.base) / fs.tileH;
-      const v1 = (eave - o.base) / fs.tileH;
-      const mx = (ax + bx) / 2;
-      const mz = (az + bz) / 2;
-      const nx = -(bz - az) / (len || 1);
-      const nz = (bx - ax) / (len || 1);
-      // 辺の中点から少しずらした点が輪郭の中にある側を「内側」とする（多角形の向きに頼らない）
-      const sgn = pointIn(mx - nx * 0.3, mz - nz * 0.3, poly) ? 1 : -1;
-      const inPt = [mx - nx * 0.3 * sgn, (y0 + eave) / 2, mz - nz * 0.3 * sgn];
-      buf.tri([ax, y0, az], [bx, y0, bz], [bx, eave, bz], [u0, v0], [u1, v0], [u1, v1], wallColor, inPt);
-      buf.tri([ax, y0, az], [bx, eave, bz], [ax, eave, az], [u0, v0], [u1, v1], [u0, v1], wallColor, inPt);
-      along += len;
+    const holes = info?.hl ?? [];
+    for (const ring of [poly, ...holes]) {
+      for (let i = 0; i < ring.length; i++) {
+        const [ax, az] = ring[i];
+        const [bx, bz] = ring[(i + 1) % ring.length];
+        const len = Math.hypot(bx - ax, bz - az);
+        const u0 = along / fs.tileW;
+        const u1 = (along + len) / fs.tileW;
+        const v0 = (y0 - o.base) / fs.tileH;
+        const v1 = (eave - o.base) / fs.tileH;
+        const mx = (ax + bx) / 2;
+        const mz = (az + bz) / 2;
+        const nx = -(bz - az) / (len || 1);
+        const nz = (bx - ax) / (len || 1);
+        // 辺の中点から少しずらした点が輪郭の中にある側を「内側」とする（多角形の向きに頼らない）
+        const sgn = inShape(mx - nx * 0.3, mz - nz * 0.3, poly, holes) ? 1 : -1;
+        const inPt = [mx - nx * 0.3 * sgn, (y0 + eave) / 2, mz - nz * 0.3 * sgn];
+        buf.tri([ax, y0, az], [bx, y0, bz], [bx, eave, bz], [u0, v0], [u1, v0], [u1, v1], wallColor, inPt);
+        buf.tri([ax, y0, az], [bx, eave, bz], [ax, eave, az], [u0, v0], [u1, v1], [u0, v1], wallColor, inPt);
+        along += len;
+      }
     }
 
     if (rect) {
       addGable(pitched, walls[style], rect, eave, y1, roofColor, wallColor, fs);
     } else {
-      addRoofSlab(flatRoofs, poly, y1, y1, roofColor, [cx, y1 - 1, cz]);
+      addRoofSlab(flatRoofs, poly, y1, y1, roofColor, [cx, y1 - 1, cz], holes);
     }
   }
 
@@ -628,12 +631,13 @@ function sampleRoof(sampler: PhotoSampler, poly: [number, number][]): THREE.Colo
   return acc.multiplyScalar(1 / n);
 }
 
-function addRoofSlab(buf: GeoBuf, poly: [number, number][], yBottom: number, yTop: number, color: THREE.Color, inside: number[]) {
-  const contour = poly.map(([x, z]) => new THREE.Vector2(x, z));
-  const tris = THREE.ShapeUtils.triangulateShape(contour, []);
+function addRoofSlab(buf: GeoBuf, poly: [number, number][], yBottom: number, yTop: number, color: THREE.Color, inside: number[], holes: [number, number][][] = []) {
+  const v2 = (ring: [number, number][]) => ring.map(([x, z]) => new THREE.Vector2(x, z));
+  const tris = THREE.ShapeUtils.triangulateShape(v2(poly), holes.map(v2));
+  const all = [...poly, ...holes.flat()];
   const above = [inside[0], yTop - 50, inside[2]];
   for (const t of tris) {
-    const [a, b, c] = t.map((i) => poly[i]);
+    const [a, b, c] = t.map((i) => all[i]);
     buf.tri([a[0], yTop, a[1]], [b[0], yTop, b[1]], [c[0], yTop, c[1]], [a[0] / 8, a[1] / 8], [b[0] / 8, b[1] / 8], [c[0] / 8, c[1] / 8], color, above);
   }
   if (yBottom < yTop) {

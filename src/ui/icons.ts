@@ -3,6 +3,8 @@
 const P: Record<string, string> = {
   prop: '<path d="M2 13h3l2-2h9l4 1.2c1 .3 1 1.6 0 1.8L16 15H7z"/><path d="M8 11 6.5 6.5h5L13 11"/><path d="M20.5 9.5v7"/><path d="M3 13 2 9.5h2l2.5 3.5"/><path d="M9 15l-.5 3M14 15l.5 3"/>',
   birdman: '<path d="M1 9.5c4-1.2 18-1.2 22 0"/><path d="M10 9.7 9.5 15h4l-.5-5.3"/><circle cx="11.5" cy="12.6" r="1"/><path d="M9.5 15 8 18h7l-1.5-3"/><path d="M15 16.5h4.5M19.5 14.5v4"/>',
+  mamachari: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-6h6l2 6M10 10 8.5 7H7M16 10l1-3h2"/><path d="M11 8h8.5l2 1.5-2 1.5H11z"/>',
+  ufo: '<ellipse cx="12" cy="14" rx="10" ry="3"/><path d="M8 12.2a4 4 0 0 1 8 0"/><path d="M8 19l-1.5 2.5M16 19l1.5 2.5M12 17v4"/><circle cx="6.5" cy="14" r=".6"/><circle cx="12" cy="15" r=".6"/><circle cx="17.5" cy="14" r=".6"/>',
   paper: '<path d="M2 12 22 6 9 14z"/><path d="M9 14l1 4 3-5"/><path d="M22 6 10 18"/>',
   drone: '<path d="M8 12h8l-1 2.5H9z"/><path d="M4 10h5M15 10h5"/><path d="M6.5 10v2M17.5 10v2"/><path d="M6.5 12l2 0M17.5 12l-2 0"/><path d="M10 14.5l-1 3M14 14.5l1 3"/><circle cx="12" cy="13.2" r=".8"/>',
   kotatsu: '<path d="M3 9h18v1.6H3z"/><path d="M4 10.6c1 3 1 5 .5 7.4h15c-.5-2.4-.5-4.4.5-7.4"/><circle cx="12" cy="7.3" r="1.7"/><path d="M12 5.6v-.8"/><path d="M5 20l1-2M19 20l-1-2M9 20l.4-2M15 20l-.4-2"/>',

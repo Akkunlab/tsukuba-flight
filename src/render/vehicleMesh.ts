@@ -166,46 +166,6 @@ const SHAPES: Record<string, Builder> = {
     return { group: g, spinners: [{ obj: prop, axis: 'z', speed: 60 }], discs: [d], flames: [], tail: new THREE.Vector3(0, 1.6, 4) };
   },
 
-  birdman(color) {
-    const g = new THREE.Group();
-    const film = new THREE.MeshPhysicalMaterial({ color, roughness: 0.15, transmission: 0, transparent: true, opacity: 0.55, side: THREE.DoubleSide, clearcoat: 0.6 });
-    const carbon = std(0x1c1c1c, 0.35, 0.3);
-    const w = mesh(wing([[-12.5, -0.45], [12.5, -0.3], [12.5, 0.4], [-12.5, 0.4]], 0.14), film, 0, 3.4, 0);
-    w.castShadow = true;
-    g.add(w);
-    g.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 25, 8).rotateZ(Math.PI / 2), carbon, 0, 3.47, -0.1));
-    for (let x = -12; x <= 12; x += 1.5) g.add(mesh(new THREE.BoxGeometry(0.03, 0.16, 0.86), carbon, x, 3.47, 0.04));
-    const pod = mesh(lathe([[0.05, -1.6], [0.45, -1.2], [0.6, -0.3], [0.55, 0.6], [0.25, 1.4], [0.08, 1.8]]), film, 0, 1.6, 0);
-    pod.scale.set(0.8, 1.5, 1);
-    g.add(pod);
-    const pilot = new THREE.Group();
-    pilot.add(mesh(new THREE.SphereGeometry(0.16, 12, 8), std(0xf0c8a0, 0.7), 0, 2.05, -0.15));
-    pilot.add(mesh(new THREE.SphereGeometry(0.17, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std(0xd83a2e, 0.4), 0, 2.08, -0.15));
-    pilot.add(mesh(new THREE.CapsuleGeometry(0.17, 0.45, 4, 8), std(0x2f6fb5, 0.8), 0, 1.65, 0.05));
-    g.add(pilot);
-    g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.9, 6), carbon, 0, 2.5, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.06, 0.04, 6.5, 8).rotateX(Math.PI / 2), carbon, 0, 2.3, 4.3));
-    g.add(mesh(wing([[-2, -0.3], [2, -0.3], [2, 0.3], [-2, 0.3]], 0.06), film, 0, 2.3, 7.3));
-    const fin = mesh(new THREE.BoxGeometry(0.04, 1.4, 0.7), film, 0, 2.9, 7.3);
-    g.add(fin);
-    const wl = wheel(0.25, 0.08);
-    wl.position.set(0, 0.25, 0.2);
-    g.add(wl);
-    g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), carbon, 0, 0.7, 0.2));
-    const prop = new THREE.Group();
-    prop.position.set(0, 1.9, -1.75);
-    for (const s of [-1, 1]) {
-      const blade = mesh(new THREE.BoxGeometry(0.22, 1.5, 0.03), std(0xf2f2f2, 0.4), 0, s * 0.75, 0);
-      blade.rotation.y = s * 0.25;
-      prop.add(blade);
-    }
-    g.add(prop);
-    const d = disc(1.5, 'z');
-    d.position.copy(prop.position);
-    g.add(d);
-    return { group: g, spinners: [{ obj: prop, axis: 'z', speed: 14 }], discs: [d], flames: [], tail: new THREE.Vector3(0, 3.4, 0.4) };
-  },
-
   paper(color) {
     const g = new THREE.Group();
     const geo = new THREE.BufferGeometry();
@@ -360,93 +320,75 @@ const SHAPES: Record<string, Builder> = {
     return { group: g, spinners: [], discs: [], flames: [f], tail: new THREE.Vector3(0, 0, 1) };
   },
 
-  petbottle(color) {
+  // ロケットを積んだママチャリ。前が -z、車輪の下が原点
+  mamachari(color) {
     const g = new THREE.Group();
-    const plastic = new THREE.MeshPhysicalMaterial({ color, roughness: 0.05, transparent: true, opacity: 0.35, clearcoat: 1, envMapIntensity: 2 });
-    g.add(mesh(lathe([[0.2, 0.05], [0.2, -0.2], [0.45, -0.75], [0.45, -2.5], [0.38, -2.8], [0.1, -2.95]], 24), plastic, 0, 0, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.22, 16).rotateX(Math.PI / 2), std(0x2266dd, 0.4), 0, 0, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.43, 0.43, 1.1, 20).rotateX(Math.PI / 2), new THREE.MeshPhysicalMaterial({ color: 0x5ab8f0, roughness: 0.1, transparent: true, opacity: 0.45 }), 0, 0, -1.2));
-    g.add(mesh(new THREE.CylinderGeometry(0.455, 0.455, 0.6, 20, 1, true).rotateX(Math.PI / 2), std(0xf2f2f2, 0.6, 0, { side: THREE.DoubleSide }), 0, 0, -1.9));
-    for (let i = 0; i < 3; i++) {
-      const holder = new THREE.Group();
-      const fin = mesh(new THREE.BoxGeometry(0.03, 0.55, 0.8), std(0xff3366, 0.6), 0, 0.7, -0.9);
-      holder.add(fin);
-      holder.rotation.z = (i * Math.PI * 2) / 3;
-      g.add(holder);
+    const frame = std(color, 0.35, 0.4);
+    const chrome = metal(0xd0d4d8, 0.25);
+    const tube = (a: THREE.Vector3, b: THREE.Vector3, r = 0.03, mat: THREE.Material = frame) => {
+      const len = a.distanceTo(b);
+      const m = mesh(new THREE.CylinderGeometry(r, r, len, 8), mat);
+      m.position.copy(a).add(b).multiplyScalar(0.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      return m;
+    };
+    const spinners: VehicleModel['spinners'] = [];
+    for (const z of [-0.55, 0.55]) {
+      const w = new THREE.Group();
+      w.position.set(0, 0.33, z);
+      w.add(mesh(new THREE.TorusGeometry(0.31, 0.025, 8, 32).rotateY(Math.PI / 2), rubber()));
+      for (let i = 0; i < 12; i++) {
+        const sp = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.6, 3), chrome);
+        sp.rotation.x = (i * Math.PI) / 12;
+        w.add(sp);
+      }
+      g.add(w);
+      spinners.push({ obj: w, axis: 'x', speed: -30 });
     }
-    const f = flame(0.2, 2.5, 0xbfefff);
+    const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+    g.add(tube(V(0, 0.33, 0.55), V(0, 0.75, 0.1)), tube(V(0, 0.75, 0.1), V(0, 0.45, -0.1)), tube(V(0, 0.45, -0.1), V(0, 0.33, 0.55)));
+    g.add(tube(V(0, 0.45, -0.1), V(0, 0.82, -0.42), 0.035), tube(V(0, 0.33, -0.55), V(0, 0.95, -0.45)));
+    g.add(tube(V(-0.28, 0.98, -0.4), V(0.28, 0.98, -0.4), 0.018, chrome));
+    g.add(mesh(new THREE.BoxGeometry(0.34, 0.22, 0.26), std(0x222222, 0.6), 0, 0.92, -0.62));
+    g.add(mesh(new THREE.BoxGeometry(0.16, 0.05, 0.26), std(0x1a1a1a, 0.7), 0, 0.86, 0.12));
+    // 乗っている人
+    g.add(mesh(new THREE.CapsuleGeometry(0.16, 0.4, 4, 8), std(0x2f4f8f, 0.8), 0, 1.25, 0.02));
+    g.add(mesh(new THREE.SphereGeometry(0.13, 14, 10), std(0xf0c8a0, 0.7), 0, 1.68, -0.08));
+    g.add(mesh(new THREE.SphereGeometry(0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), std(0xffffff, 0.3), 0, 1.71, -0.08));
+    // 後ろの荷台に縛りつけたロケット
+    g.add(mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.1, 16).rotateX(Math.PI / 2), std(0xe8e8e8, 0.3, 0.3), 0, 0.92, 0.55));
+    g.add(mesh(new THREE.ConeGeometry(0.16, 0.3, 16).rotateX(-Math.PI / 2), std(0xc8202a, 0.4), 0, 0.92, -0.05));
+    g.add(mesh(lathe([[0.1, 1.05], [0.13, 1.18], [0.2, 1.3]], 16), metal(0x555555, 0.3), 0, 0.92, 0));
+    // 段ボールの翼
+    g.add(mesh(new THREE.BoxGeometry(2.4, 0.02, 0.45), std(0xb08850, 0.95), 0, 0.88, 0.25));
+    const f = flame(0.18, 1.8, 0xffb060);
+    f.position.set(0, 0.92, 1.3);
     g.add(f);
-    return { group: g, spinners: [], discs: [], flames: [f], tail: new THREE.Vector3(0, 0, 0.3) };
+    g.scale.setScalar(1.4);
+    return { group: g, spinners, discs: [], flames: [f], tail: new THREE.Vector3(0, 1.3, 2) };
   },
 
-  balloon(color) {
+  ufo(color) {
     const g = new THREE.Group();
-    const env = new THREE.SphereGeometry(8, 32, 24);
-    const pos = env.attributes.position as THREE.BufferAttribute;
-    const colors: number[] = [];
-    const a = new THREE.Color(color);
-    const b = new THREE.Color(0xf2e2c4);
-    const c2 = new THREE.Color(0x1f3d6b);
-    for (let i = 0; i < pos.count; i++) {
-      const ang = Math.atan2(pos.getZ(i), pos.getX(i));
-      const y = pos.getY(i);
-      const gore = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 16) % 2 === 0;
-      const band = y > 2.5 && y < 4;
-      const c = band ? c2 : gore ? a : b;
-      colors.push(c.r, c.g, c.b);
-      if (y < 0) {
-        const k = 1 + (y / 8) * 0.62;
-        pos.setX(i, pos.getX(i) * k);
-        pos.setZ(i, pos.getZ(i) * k);
-      } else {
-        pos.setY(i, y * 1.08);
-      }
+    const hull = std(color, 0.18, 0.95, { envMapIntensity: 1.6 });
+    g.add(mesh(lathe([[0.1, -1.0], [3.2, -0.6], [6, 0], [3.2, 0.5], [0.1, 0.9]], 48).rotateX(-Math.PI / 2), hull, 0, 1.6, 0));
+    g.add(mesh(new THREE.SphereGeometry(2, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshPhysicalMaterial({ color: 0x9fe8ff, roughness: 0.05, transparent: true, opacity: 0.45, clearcoat: 1 }), 0, 2.4, 0));
+    const ring = new THREE.Group();
+    ring.position.y = 1.6;
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0x7fffe0, emissive: 0x6fffd8, emissiveIntensity: 2.5 });
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const l = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), lightMat);
+      l.position.set(Math.cos(a) * 5.6, 0, Math.sin(a) * 5.6);
+      ring.add(l);
     }
-    env.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    env.computeVertexNormals();
-    g.add(mesh(env, std(0xffffff, 0.75, 0, { vertexColors: true }), 0, 13, 0));
-    const wicker = canvasTexture(128, 128, (c) => {
-      c.fillStyle = '#8a5a2b';
-      c.fillRect(0, 0, 128, 128);
-      for (let y = 0; y < 128; y += 8) {
-        for (let x = 0; x < 128; x += 8) {
-          c.fillStyle = (x + y) % 16 === 0 ? '#a8763f' : '#6f4620';
-          c.fillRect(x, y, 7, 7);
-        }
-      }
-    }, 2);
-    g.add(mesh(new THREE.BoxGeometry(1.6, 1.1, 1.6), std(0xffffff, 0.9, 0, { map: wicker }), 0, 0.55, 0));
-    g.add(mesh(new THREE.BoxGeometry(1.7, 0.1, 1.7), std(0x5a3a1a, 0.7), 0, 1.12, 0));
-    g.add(mesh(new THREE.BoxGeometry(1.0, 0.06, 1.0), metal(), 0, 2.4, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.45, 12), metal(0x8a8a8a, 0.3), 0, 2.2, 0));
-    const rope = new THREE.LineBasicMaterial({ color: 0x2b2b2b });
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(sx * 0.78, 1.1, sz * 0.78), new THREE.Vector3(sx * 0.5, 2.4, sz * 0.5), new THREE.Vector3(sx * 2.6, 7.3, sz * 2.6)]), rope));
-    }
-    const f = flame(0.35, 2.2);
-    f.rotation.x = -Math.PI / 2;
-    f.position.set(0, 2.5, 0);
-    g.add(f);
-    return { group: g, spinners: [], discs: [], flames: [f], tail: new THREE.Vector3(0, 6, 0) };
-  },
-
-  broom(color) {
-    const g = new THREE.Group();
-    g.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 3.2, 10).rotateX(Math.PI / 2), std(color, 0.5), 0, 0.8, -0.3));
-    const straw = canvasTexture(64, 64, (c) => {
-      c.fillStyle = '#c9a24a';
-      c.fillRect(0, 0, 64, 64);
-      for (let x = 0; x < 64; x += 2) {
-        c.fillStyle = `rgba(${120 + Math.random() * 80},${90 + Math.random() * 60},30,0.6)`;
-        c.fillRect(x, 0, 1, 64);
-      }
-    });
-    g.add(mesh(new THREE.ConeGeometry(0.38, 1.5, 16, 1, true).rotateX(Math.PI / 2), std(0xffffff, 0.9, 0, { map: straw, side: THREE.DoubleSide }), 0, 0.8, 1.85));
-    g.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 10).rotateX(Math.PI / 2), std(0x7a1f1f, 0.6), 0, 0.8, 1.1));
-    const sparkle = flame(0.15, 1.2, 0xc58bff);
-    sparkle.position.set(0, 0.8, 2.6);
-    g.add(sparkle);
-    return { group: g, spinners: [], discs: [], flames: [sparkle], tail: new THREE.Vector3(0, 0.8, 2.6) };
+    g.add(ring);
+    const glow = flame(2.4, 1.6, 0x66ffe0);
+    glow.rotation.x = Math.PI / 2;
+    glow.position.y = 0.7;
+    g.add(glow);
+    for (const [x, z] of [[2, 1.2], [-2, 1.2], [0, -2.3]]) g.add(mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.9, 6), metal(), x, 0.45, z));
+    return { group: g, spinners: [{ obj: ring, axis: 'y', speed: 4 }], discs: [], flames: [glow], tail: new THREE.Vector3(0, 1.6, 0) };
   },
 };
 

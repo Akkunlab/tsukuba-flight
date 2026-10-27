@@ -2,7 +2,7 @@
 import { FUELS, MAX_PASSENGERS, MODES, PASSENGERS, VEHICLES, fuelById, fuelsFor, modeById, vehicleById } from '../content/index';
 import type { CustomPassenger, FuelDef, ModeDef, PassengerDef, SoundRecipe, VehicleDef } from '../content/types';
 import { validatePassenger } from '../content/validate';
-import { TANK } from '../sim/physics';
+import { TANK, launchThrottle } from '../sim/physics';
 import type { AudioEngine } from '../audio/sound';
 import { loadBest, loadCustomPassengers, randomId, saveCustomPassengers, sendElement, type Settings } from '../net/api';
 import { CUSTOM_ICONS, icon } from './icons';
@@ -29,9 +29,9 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 const MODEL_LABEL = { plane: '滑走路から', hover: 'その場で浮く', rocket: '打ち上げ', balloon: '風まかせ' } as const;
 
-/** 巡航（スロットル 6 割）で飛べるおよその時間 [秒] */
+/** スタート時のスロットルのまま飛んだときに燃料がもつ時間 [秒]（physics.ts の burnFuel と同じ式） */
 export function endurance(v: VehicleDef, f: FuelDef): number {
-  return (TANK * f.capacity) / (v.fuelUse * (0.15 + 0.85 * 0.6));
+  return (TANK * f.capacity) / (v.fuelUse * (0.15 + 0.85 * launchThrottle(v)));
 }
 
 function minutes(s: number) {

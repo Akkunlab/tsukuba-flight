@@ -60,6 +60,8 @@ export class Flight {
   stats: FlightStats = { duration: 0, distance: 0, maxAlt: 0, maxSpeed: 0, checkpoints: 0, targets: 0, path: [] };
   readonly targets: Vec3[] = [];
   readonly popped: boolean[] = [];
+  /** 割れた時刻（リプレイ用）。割れていなければ -1 */
+  readonly popTimes: number[] = [];
   readonly replay: ReplayFrame[] = [];
   private lastReplayT = -1;
   altitude = 0;
@@ -67,6 +69,8 @@ export class Flight {
   private lastPathT = -1;
   private lastCount = COUNTDOWN + 1;
   private warnedFuel = false;
+  /** 燃料が尽きたら操縦できなくなり、そのまま落ちる */
+  fuelOut = false;
 
   constructor(world: World, setup: FlightSetup) {
     this.world = world;
@@ -96,6 +100,7 @@ export class Flight {
         if (this.targets.some((p) => Math.hypot(p.x - x, p.y - y, p.z - z) < 70)) continue;
         this.targets.push({ x, y, z });
         this.popped.push(false);
+        this.popTimes.push(-1);
         break;
       }
     }
@@ -134,14 +139,14 @@ export class Flight {
     this.wind = windFor(mode, this.setup.seed, this.time);
     const before = { ...c.pos };
     const ground = this.world.surfaceHeight(c.pos.x, c.pos.z);
-    step(c, vehicle, fuel, input, this.wind, ground.height, dt);
+    step(c, vehicle, fuel, this.fuelOut ? { x: 0, y: 0, throttle: 0 } : input, this.wind, ground.height, dt);
 
     const surf = this.world.surfaceHeight(c.pos.x, c.pos.z);
     this.altitude = c.pos.y - surf.height;
     if (c.pos.y <= surf.height) {
       if (!c.onGround) {
         const verdict = this.judgeTouchdown(surf.kind);
-        if (verdict) return this.end('crashed', verdict, ev);
+        if (verdict) return this.end('crashed', this.fuelOut ? `燃料切れで墜落（${verdict}）` : verdict, ev);
         c.onGround = true;
         if (this.tookOff) ev.push({ type: 'touchdown' });
       }
@@ -186,6 +191,7 @@ export class Flight {
       const p = this.targets[i];
       if (Math.hypot(c.pos.x - p.x, c.pos.y - p.y, c.pos.z - p.z) < tr + vehicle.radius) {
         this.popped[i] = true;
+        this.popTimes[i] = this.time;
         this.stats.targets++;
         ev.push({ type: 'pop', value: i });
         if (this.stats.targets === this.targets.length) ev.push({ type: 'allTargets' });
@@ -206,7 +212,11 @@ export class Flight {
       this.settle = 0;
     }
 
-    if (c.fuel <= 0) return this.end('fuel', '燃料切れ', ev);
+    if (c.fuel <= 0 && !this.fuelOut) {
+      if (!this.tookOff) return this.end('fuel', '燃料切れ', ev);
+      this.fuelOut = true;
+      ev.push({ type: 'warning', text: '燃料切れ ― 操縦できない！' });
+    }
     if (!this.warnedFuel && c.fuel < 0.2) {
       this.warnedFuel = true;
       ev.push({ type: 'warning', text: '燃料が残りわずか！' });

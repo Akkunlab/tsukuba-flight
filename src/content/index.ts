@@ -22,7 +22,7 @@ export function modeById(id: string): ModeDef {
   return MODES.find((m) => m.id === id) ?? MODES[0];
 }
 export function fuelsFor(v: VehicleDef): FuelDef[] {
-  return v.fuels ? FUELS.filter((f) => v.fuels!.includes(f.id)) : FUELS.filter((f) => f.id !== 'water');
+  return v.fuels ? FUELS.filter((f) => v.fuels!.includes(f.id)) : FUELS;
 }
 export function passengerById(id: string, custom: PassengerDef[] = []): PassengerDef | undefined {
   return PASSENGERS.find((p) => p.id === id) ?? custom.find((p) => p.id === id);

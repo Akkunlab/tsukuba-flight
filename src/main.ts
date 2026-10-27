@@ -11,7 +11,7 @@ import { Flight, RING_RADIUS, type FlightEvent, type Phase } from './sim/flight'
 import { forward } from './sim/physics';
 import { PAD, World, inRunwayArea, type WorldData } from './sim/world';
 import { buildAirfield, buildBuildings, buildTerrain, buildTrees, buildWater, loadTexture, makePhotoSampler } from './world/terrain';
-import { buildScenery, type SceneryObject } from './world/scenery';
+import { buildScenery, textSprite, type SceneryObject } from './world/scenery';
 import { buildVehicleModel, type VehicleModel } from './render/vehicleMesh';
 import { Balloons, Explosion, Rings, Trail, blobShadow, pathLine } from './render/effects';
 import { ReplayPlayer, type ReplayCamera } from './render/replay';
@@ -112,7 +112,7 @@ const balloons = new Balloons();
 const explosion = new Explosion();
 const shadow = blobShadow();
 const replay = new ReplayPlayer();
-let route: THREE.Line | null = null;
+let route: THREE.Group | null = null;
 scene.add(trail.mesh, rings.group, balloons.group, explosion.group, shadow);
 let cameraMode: 'chase' | 'far' | 'cockpit' = 'chase';
 let paused = false;
@@ -122,6 +122,7 @@ let clock = 0;
 let previewModel: VehicleModel | null = null;
 let currentWind = { x: 0, y: 0, z: 0 };
 let replayExploded = false;
+let lastInput = { x: 0, y: 0, throttle: 0 };
 const focus = new THREE.Vector3();
 
 function setScreen(s: Screen) {
@@ -392,7 +393,7 @@ function onFlightEnd() {
   if (f.outcome === 'crashed') {
     audio.sfx('crash');
     const c = f.craft.pos;
-    explosion.burst(new THREE.Vector3(c.x, c.y + 1, c.z), Math.max(1.5, f.setup.vehicle.radius * 0.6));
+    explosion.burst(new THREE.Vector3(c.x, c.y + 1, c.z), Math.max(1.5, f.setup.vehicle.radius * 0.6), hangar.settings.vehicleColor ?? f.setup.vehicle.color, world.surfaceHeight(c.x, c.z).height);
     if (model) model.group.visible = false;
   } else if (f.outcome === 'landed') {
     audio.sfx('landed');
@@ -453,8 +454,18 @@ function showResult() {
   if (f.replay.length > 1) {
     replay.start(f.replay, f.outcome === 'crashed');
     replayExploded = false;
-    route = pathLine(f.replay.map((r) => ({ x: r[1], y: r[2], z: r[3] })), (x, z) => world.terrainHeight(x, z));
+    route = new THREE.Group();
+    route.add(pathLine(f.replay.map((r) => ({ x: r[1], y: r[2], z: r[3] })), (x, z) => world.terrainHeight(x, z)));
+    // 風船を割った場所に、割った順の番号を立てる
+    const order = f.popTimes.map((t, i) => ({ t, i })).filter((p) => p.t >= 0).sort((a, b) => a.t - b.t);
+    order.forEach(({ i }, n) => {
+      const p = f.targets[i];
+      const label = textSprite(String(n + 1), { color: '#ff6b5b', scale: 0.8 });
+      label.position.set(p.x, p.y + 12, p.z);
+      route!.add(label);
+    });
     scene.add(route);
+    balloons.replayAt(-1, f.popTimes);
     if (model) model.group.visible = true;
     trail.clear();
   }
@@ -584,6 +595,7 @@ function frame(now: number) {
 
   if (screen === 'flying' && flight && !paused) {
     const input = controls.read(dt);
+    lastInput = input;
     if (flight.phase !== 'ended') {
       const n = Math.max(1, Math.ceil(dt / (1 / 60)));
       const f = flight;
@@ -613,11 +625,15 @@ function frame(now: number) {
   }
   rings.update(clock);
   balloons.update(dt, clock);
-  explosion.update(dt);
+  explosion.update(dt, currentWind);
   for (const s of scenery) s.update?.(dt, clock);
   if (water) {
     const nm = (water.material as THREE.MeshStandardMaterial).normalMap;
     if (nm) nm.offset.set(clock * 0.004, clock * 0.0025);
+  }
+  if (explosion.shake > 0) {
+    const k = explosion.shake * explosion.shake * Math.min(1, 300 / Math.max(1, camera.position.distanceTo(focus)));
+    camera.position.add(new THREE.Vector3((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k));
   }
   updateSun();
   renderer.render(scene, camera);
@@ -684,7 +700,14 @@ function updateFlightVisuals(dt: number) {
   shadow.scale.set(size, 1, size);
   (shadow.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.6 - alt / 600);
 
-  audio.update({ throttle: c.throttle, speed: c.speed, altitude: alt });
+  audio.update({
+    throttle: c.throttle,
+    speed: c.speed,
+    altitude: alt,
+    speedRatio: Math.hypot(c.vel.x, c.vel.y, c.vel.z) / v.maxSpeed,
+    turn: f.fuelOut ? 0 : lastInput.x,
+    climb: c.vel.y,
+  });
   updateFlightCamera(dt);
 }
 
@@ -698,14 +721,19 @@ function updateReplay(dt: number) {
   const end = replay.frames[replay.frames.length - 1][0];
   const atEnd = pose.t >= end - 0.02;
   poseModel(model, pose.pos, pose.yaw, pose.pitch, pose.roll, pose.throttle, dt, false);
+  if (balloons.replayAt(pose.t, f.popTimes).length) audio.sfx('checkpoint');
   if (replay.crashed) {
     model.group.visible = !atEnd;
     if (atEnd && !replayExploded) {
       replayExploded = true;
-      explosion.burst(pose.pos.clone().add(new THREE.Vector3(0, 1, 0)), Math.max(1.5, f.setup.vehicle.radius * 0.6));
+      explosion.clear();
+      explosion.burst(pose.pos.clone().add(new THREE.Vector3(0, 1, 0)), Math.max(1.5, f.setup.vehicle.radius * 0.6), hangar.settings.vehicleColor ?? f.setup.vehicle.color, world.surfaceHeight(pose.pos.x, pose.pos.z).height);
       audio.sfx('crash');
     }
-    if (!atEnd) replayExploded = false;
+    if (!atEnd && replayExploded && pose.t < replay.frames[0][0] + 0.5) {
+      replayExploded = false;
+      explosion.clear();
+    }
   }
   for (const fl of model.flames) fl.visible = pose.throttle > 0.1 && !atEnd;
   replay.place(camera, pose, f.setup.vehicle.radius, (x, z) => world.surfaceHeight(x, z).height);
@@ -755,6 +783,7 @@ function flightStatus(f: Flight, vs: number, alt: number): string {
   const c = f.craft;
   const v = f.setup.vehicle;
   if (f.phase === 'countdown') return '発進準備';
+  if (f.fuelOut) return '燃料切れ ― 操縦不能';
   if (c.onGround) {
     if (Math.hypot(c.vel.x, c.vel.z) > 1) return v.model === 'plane' ? '滑走中' : '地上';
     return f.tookOff ? '停止' : '地上待機';

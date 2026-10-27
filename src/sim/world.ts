@@ -18,6 +18,8 @@ export interface BuildingData {
   c?: string;
   rc?: string;
   rs?: string;
+  /** 中庭（輪郭の中の穴） */
+  hl?: [number, number][][];
 }
 
 export interface WorldData {
@@ -85,6 +87,11 @@ export function pointInPolygon(x: number, z: number, poly: [number, number][]): 
     if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
   }
   return inside;
+}
+
+/** 輪郭の中で、穴（中庭）の外か */
+export function inShape(x: number, z: number, poly: [number, number][], holes?: [number, number][][]): boolean {
+  return pointInPolygon(x, z, poly) && !(holes?.some((h) => pointInPolygon(x, z, h)) ?? false);
 }
 
 export function distToPolygonEdge(x: number, z: number, poly: [number, number][]): number {
@@ -280,7 +287,7 @@ export class World {
     let best: { height: number; kind: Hit['kind']; name?: string } = { height: this.terrainHeight(x, z), kind: 'terrain' };
     for (const o of this.candidates(x, z, 0)) {
       if (x < o.minX || x > o.maxX || z < o.minZ || z > o.maxZ) continue;
-      if (o.top > best.height && pointInPolygon(x, z, o.poly)) best = { height: o.top, kind: o.kind, name: o.name };
+      if (o.top > best.height && inShape(x, z, o.poly, o.src?.hl)) best = { height: o.top, kind: o.kind, name: o.name };
     }
     return best;
   }
@@ -290,7 +297,7 @@ export class World {
     for (const o of this.candidates(x, z, r)) {
       if (x < o.minX - r || x > o.maxX + r || z < o.minZ - r || z > o.maxZ + r) continue;
       if (y - r * 0.5 > o.top || y + r < o.base) continue;
-      if (pointInPolygon(x, z, o.poly) || distToPolygonEdge(x, z, o.poly) < r) {
+      if (inShape(x, z, o.poly, o.src?.hl) || distToPolygonEdge(x, z, o.poly) < r || (o.src?.hl?.some((h) => distToPolygonEdge(x, z, h) < r) ?? false)) {
         return { kind: o.kind, name: o.name, top: o.top };
       }
     }

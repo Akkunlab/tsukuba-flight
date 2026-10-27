@@ -5,7 +5,7 @@ export const MODES: ModeDef[] = [
     id: 'tour',
     name: '筑波大一周ツアー',
     icon: 'tour',
-    description: '名所に浮かぶ 8 つのリングを順にくぐる。',
+    description: '名所に浮かぶ 7 つのリングを順にくぐり、春日で終わる。',
     objective: 'リングを順番にくぐって、着陸する',
     timeLimit: 0,
     wind: 2,
@@ -17,7 +17,6 @@ export const MODES: ModeDef[] = [
       { name: '平砂学生宿舎', x: 200, z: 900, alt: 80 },
       { name: '附属病院', x: -83, z: 1436, alt: 110 },
       { name: '春日エリア', x: 400, z: 2200, alt: 80 },
-      { name: '地図と測量の科学館', x: -1474, z: 225, alt: 70 },
     ],
   },
   {

@@ -127,8 +127,8 @@ def bbox_meters(b):
     x1, z1 = to_xz(b["south"], b["east"])
     return dict(minX=round(x0, 1), maxX=round(x1, 1), minZ=round(z0, 1), maxZ=round(z1, 1))
 
-def overpass(query):
-    path = os.path.join(ROOT, ".cache", "osm.json")
+def overpass(query, cache="osm.json"):
+    path = os.path.join(ROOT, ".cache", cache)
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)
@@ -136,7 +136,7 @@ def overpass(query):
     mirrors = ["https://overpass-api.de/api/interpreter",
                "https://overpass.private.coffee/api/interpreter",
                "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
-    for attempt in range(6):
+    for attempt in range(12):
         url = mirrors[attempt % len(mirrors)]
         try:
             req = urllib.request.Request(url, data=body, headers={"User-Agent": UA})
@@ -145,7 +145,7 @@ def overpass(query):
             break
         except Exception as e:
             print(f"overpass retry ({url}): {e}", file=sys.stderr)
-            time.sleep(5 * (attempt + 1))
+            time.sleep(10 * (attempt + 1))
     else:
         raise RuntimeError("overpass failed")
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -170,6 +170,56 @@ def building_height(tags):
     return {"house": 7, "detached": 7, "garage": 3.5, "shed": 3, "roof": 4,
             "apartments": 13, "university": 14, "school": 12, "dormitory": 13,
             "hospital": 25, "commercial": 12, "retail": 8, "industrial": 9}.get(kind, 9)
+
+def building_item(poly, tags, holes=None):
+    item = {"p": poly, "h": round(building_height(tags), 1)}
+    if holes:
+        item["hl"] = holes
+    name = tags.get("name")
+    if name:
+        item["n"] = name
+    kind = tags.get("building", "yes")
+    if kind != "yes":
+        item["t"] = kind
+    lv = tags.get("building:levels")
+    if lv and lv.replace(".", "", 1).isdigit():
+        item["lv"] = float(lv)
+    for key, short in (("building:colour", "c"), ("roof:colour", "rc"), ("roof:shape", "rs")):
+        if tags.get(key):
+            item[short] = tags[key][:24]
+    return item
+
+
+def stitch(ways):
+    """relation のメンバー（線の切れ端）をつないで閉じた輪にする"""
+    rings, open_ = [], [list(w) for w in ways if len(w) >= 2]
+    while open_:
+        cur = open_.pop(0)
+        changed = True
+        while cur[0] != cur[-1] and changed:
+            changed = False
+            for i, w in enumerate(open_):
+                if w[0] == cur[-1]:
+                    cur += w[1:]
+                elif w[-1] == cur[-1]:
+                    cur += w[::-1][1:]
+                elif w[-1] == cur[0]:
+                    cur = w[:-1] + cur
+                elif w[0] == cur[0]:
+                    cur = w[::-1][:-1] + cur
+                else:
+                    continue
+                open_.pop(i)
+                changed = True
+                break
+        if cur[0] == cur[-1] and len(cur) >= 4:
+            rings.append(cur)
+    return rings
+
+
+def to_poly(ring):
+    return [[round(x, 1), round(z, 1)] for x, z in (to_xz(lat, lon) for lat, lon in ring[:-1])]
+
 
 def build_osm():
     b = NEAR
@@ -196,20 +246,7 @@ out geom tags;
             continue
         poly = [[round(x, 1), round(z, 1)] for x, z in pts[:-1]]
         if "building" in tags:
-            item = {"p": poly, "h": round(building_height(tags), 1)}
-            name = tags.get("name")
-            if name:
-                item["n"] = name
-            kind = tags.get("building", "yes")
-            if kind != "yes":
-                item["t"] = kind
-            lv = tags.get("building:levels")
-            if lv and lv.replace(".", "", 1).isdigit():
-                item["lv"] = float(lv)
-            for key, short in (("building:colour", "c"), ("roof:colour", "rc"), ("roof:shape", "rs")):
-                if tags.get(key):
-                    item[short] = tags[key][:24]
-            buildings.append(item)
+            buildings.append(building_item(poly, tags))
         elif tags.get("natural") == "wood" or tags.get("landuse") == "forest":
             woods.append(poly)
         elif tags.get("natural") == "water":
@@ -218,6 +255,36 @@ out geom tags;
             cx = sum(p[0] for p in poly) / len(poly)
             cz = sum(p[1] for p in poly) / len(poly)
             named.append({"n": tags["name"], "x": round(cx), "z": round(cz)})
+    # 中庭のある建物や大きな森は multipolygon（relation）で登録されている
+    rq = f"""
+[out:json][timeout:150];
+(
+  relation["building"]({b['south']},{b['west']},{b['north']},{b['east']});
+  relation["natural"="wood"]({b['south']},{b['west']},{b['north']},{b['east']});
+  relation["landuse"="forest"]({b['south']},{b['west']},{b['north']},{b['east']});
+  relation["natural"="water"]({b['south']},{b['west']},{b['north']},{b['east']});
+);
+out geom;
+"""
+    for el in overpass(rq, "osm-rel.json")["elements"]:
+        if el.get("type") != "relation":
+            continue
+        tags = el.get("tags", {})
+        def ways(role):
+            return [[(g["lat"], g["lon"]) for g in m["geometry"]] for m in el.get("members", [])
+                    if m.get("type") == "way" and m.get("role", "outer") == role and m.get("geometry")]
+        outers = [to_poly(r) for r in stitch(ways("outer"))]
+        inners = [to_poly(r) for r in stitch(ways("inner"))]
+        for poly in outers:
+            if "building" in tags:
+                buildings.append(building_item(poly, tags, inners if len(outers) == 1 else None))
+            elif tags.get("natural") == "wood" or tags.get("landuse") == "forest":
+                woods.append(poly)
+            elif tags.get("natural") == "water":
+                water.append(poly)
+        if tags.get("name") and "building" in tags and outers:
+            poly = outers[0]
+            named.append({"n": tags["name"], "x": round(sum(p[0] for p in poly) / len(poly)), "z": round(sum(p[1] for p in poly) / len(poly))})
     return {"buildings": buildings, "woods": woods, "water": water, "named": named}
 
 def main():

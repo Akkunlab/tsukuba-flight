@@ -5,6 +5,12 @@ export interface FlightSoundState {
   throttle: number;
   speed: number;
   altitude: number;
+  /** 最高速度に対する今の速さ (0..1.5) */
+  speedRatio?: number;
+  /** 左右の操作 (-1..1) */
+  turn?: number;
+  /** 上昇の速さ [m/s] */
+  climb?: number;
 }
 
 let noiseBuffer: AudioBuffer | null = null;
@@ -42,7 +48,9 @@ export class RecipePlayer {
   private stepIndex = 0;
   private nextTime = 0;
   private stopped = false;
-  state: FlightSoundState = { throttle: 0, speed: 0, altitude: 0 };
+  /** 旋律をずらす量。数小節ごとに変えて、同じ繰り返しにならないようにする */
+  private rotation = 0;
+  state: FlightSoundState = { throttle: 0.5, speed: 0, altitude: 0, speedRatio: 0.5 };
 
   constructor(ctx: AudioContext, recipe: SoundRecipe, dest: AudioNode, volume = 1) {
     this.ctx = ctx;
@@ -91,41 +99,74 @@ export class RecipePlayer {
     this.nextTime = ctx.currentTime + 0.05;
   }
 
-  /** 先読みスケジューラ。こまめに呼ぶ */
+  /**
+   * 先読みスケジューラ。こまめに呼ぶ。
+   * 音色はレシピのまま、テンポ・リズム・旋律は飛び方で変わる：
+   * 速さとスロットル → テンポと細かさ（遅いと半分、速いと 16 分）、上昇・下降 → オクターブ、
+   * 右旋回 → 移調、左旋回 → 逆再生、数小節ごと → 旋律のずらし。
+   */
   tick() {
     if (this.stopped) return;
     const r = this.recipe;
+    const st8 = this.state;
     const ahead = this.ctx.currentTime + 0.15;
-    const speedMul = 1 + (r.follow?.speed ?? 0) * Math.min(this.state.speed / 60, 2);
-    const stepDur = 60 / (r.bpm * speedMul) / 2;
-    const transpose = (r.follow?.altitude ?? 0) * Math.min(Math.max(this.state.altitude, 0) / 100, 6);
+    const energy = Math.min(1, Math.max(0, (st8.speedRatio ?? 0.5) * 0.65 + st8.throttle * 0.35));
+    const speedMul = 1 + (r.follow?.speed ?? 0) * Math.min(st8.speed / 60, 2);
+    const stepDur = 60 / (r.bpm * speedMul * (0.75 + energy * 0.7)) / 2;
+    const transpose = (r.follow?.altitude ?? 0) * Math.min(Math.max(st8.altitude, 0) / 100, 6);
+    const turn = st8.turn ?? 0;
+    const climb = st8.climb ?? 0;
+    const len = r.pattern.length;
+    const sustained = r.gate >= 0.99 && len === 1;
     while (this.nextTime < ahead) {
-      const note = r.pattern[this.stepIndex % r.pattern.length];
+      const i = this.stepIndex;
+      if (i > 0 && i % 32 === 0) this.rotation = (this.rotation + 1 + Math.floor(Math.random() * 3)) % Math.max(len, 1);
       const t = this.nextTime;
-      const g = this.env.gain;
-      if (note === null) {
-        g.setTargetAtTime(0, t, Math.max(r.release, 0.005) / 3);
+      const k = (i + this.rotation) % len;
+      const idx = turn < -0.35 ? len - 1 - k : k;
+      let note = r.pattern[idx];
+      // ゆっくりだと裏拍を休む
+      if (energy < 0.28 && i % 2 === 1 && !sustained) note = null;
+      const shift = transpose + (turn > 0.35 ? (i % 8 < 4 ? 5 : 7) : 0) + (climb < -4 ? -12 : 0);
+      const accent = i % 4 === 0 ? 1 : 0.55 + 0.45 * st8.throttle;
+      if (sustained && energy < 0.5) {
+        this.play(t, (note ?? 0) + shift, stepDur, 1, true, i === 0);
+      } else if (note === null) {
+        this.env.gain.setTargetAtTime(0, t, Math.max(r.release, 0.005) / 3);
+      } else if (energy > 0.72) {
+        // 速いときは 1 拍を 2 つに割り、後ろは次の音（上昇中は 1 オクターブ上）
+        const next = r.pattern[(idx + 1) % len] ?? note;
+        this.play(t, note + shift, stepDur / 2, accent, false, false);
+        this.play(t + stepDur / 2, (climb > 3 ? note + 12 : next) + shift, stepDur / 2, accent * 0.8, false, false);
       } else {
-        const st = note + transpose;
-        if (r.wave === 'noise') {
-          this.filter.frequency.setTargetAtTime(semitone(r.base, st), t, Math.max(r.glide, 0.005));
-        } else {
-          for (const o of this.oscs) {
-            if (r.glide > 0) o.frequency.setTargetAtTime(semitone(r.base, st), t, r.glide / 3);
-            else o.frequency.setValueAtTime(semitone(r.base, st), t);
-          }
-        }
-        const legato = r.gate >= 0.99 && r.pattern.length === 1;
-        if (!legato || this.stepIndex === 0) {
-          g.cancelScheduledValues(t);
-          if (!legato) g.setValueAtTime(0.0001, t);
-          g.linearRampToValueAtTime(1, t + Math.max(r.attack, 0.003));
-        }
-        if (r.gate < 0.99) g.setTargetAtTime(0, t + stepDur * r.gate, Math.max(r.release, 0.005) / 3);
+        this.play(t, note + shift + (climb > 3 && i % 4 === 2 ? 12 : 0), stepDur, accent, false, false);
       }
       this.nextTime += stepDur;
       this.stepIndex++;
     }
+  }
+
+  private play(t: number, st: number, dur: number, vel: number, legato: boolean, first: boolean) {
+    const r = this.recipe;
+    const g = this.env.gain;
+    if (r.wave === 'noise') {
+      this.filter.frequency.setTargetAtTime(semitone(r.base, st), t, Math.max(r.glide, 0.005));
+    } else {
+      for (const o of this.oscs) {
+        if (r.glide > 0) o.frequency.setTargetAtTime(semitone(r.base, st), t, r.glide / 3);
+        else o.frequency.setValueAtTime(semitone(r.base, st), t);
+      }
+    }
+    if (legato) {
+      if (first) g.linearRampToValueAtTime(vel, t + Math.max(r.attack, 0.003));
+      else g.setTargetAtTime(vel, t, 0.05);
+      return;
+    }
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(0.0001, t);
+    g.linearRampToValueAtTime(vel, t + Math.max(r.attack, 0.003));
+    const gate = r.gate >= 0.99 ? 0.85 : r.gate;
+    g.setTargetAtTime(0, t + dur * gate, Math.max(r.release, 0.005) / 3);
   }
 
   stop() {
@@ -339,6 +380,35 @@ class EngineSound {
         };
         break;
       }
+      case 'ufo': {
+        // 揺れる低いうなりと、速さで上がる高い音
+        const hum = this.src(ctx.createOscillator());
+        hum.type = 'sine';
+        const hum2 = this.src(ctx.createOscillator());
+        hum2.type = 'sine';
+        const lfo = this.src(ctx.createOscillator());
+        lfo.frequency.value = 5;
+        const lfoDepth = ctx.createGain();
+        lfoDepth.gain.value = 12;
+        lfo.connect(lfoDepth);
+        lfoDepth.connect(hum.frequency);
+        lfoDepth.connect(hum2.frequency);
+        const whine = this.src(ctx.createOscillator());
+        whine.type = 'triangle';
+        const wg = ctx.createGain();
+        wg.gain.value = 0.05;
+        hum.connect(this.gain);
+        hum2.connect(this.gain);
+        whine.connect(wg).connect(this.gain);
+        this.update_ = (s) => {
+          set(hum.frequency, (70 + s.throttle * 40) * p);
+          set(hum2.frequency, (71.5 + s.throttle * 40) * p);
+          set(lfo.frequency, 3 + s.speed * 0.08);
+          set(whine.frequency, (600 + s.speed * 18) * p);
+          set(this.gain.gain, 0.2 + s.throttle * 0.25);
+        };
+        break;
+      }
       case 'none':
         break;
       default: {
@@ -528,18 +598,37 @@ export class AudioEngine {
       case 'crash': {
         const ctx = this.ctx;
         const t = ctx.currentTime;
-        const n = noiseSource(ctx);
-        const lp = ctx.createBiquadFilter();
-        lp.type = 'lowpass';
-        lp.frequency.setValueAtTime(3000, t);
-        lp.frequency.exponentialRampToValueAtTime(80, t + 1.6);
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(1, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-        n.connect(lp).connect(g).connect(this.sfxBus);
-        n.start(t);
-        n.stop(t + 2);
-        this.tone(60, 0, 1.2, 'sine', 0.6);
+        const burst = (start: number, dur: number, type: BiquadFilterType, f0: number, f1: number, gain: number, q = 0.7) => {
+          const n = noiseSource(ctx);
+          const f = ctx.createBiquadFilter();
+          f.type = type;
+          f.Q.value = q;
+          f.frequency.setValueAtTime(f0, t + start);
+          f.frequency.exponentialRampToValueAtTime(f1, t + start + dur);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, t + start);
+          g.gain.exponentialRampToValueAtTime(gain, t + start + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + start + dur);
+          n.connect(f).connect(g).connect(this.sfxBus);
+          n.start(t + start);
+          n.stop(t + start + dur + 0.1);
+        };
+        burst(0, 0.25, 'highpass', 2500, 1200, 1.2);
+        burst(0, 4.5, 'lowpass', 1800, 40, 1.4);
+        // 腹に響く低音
+        const o = ctx.createOscillator();
+        o.frequency.setValueAtTime(90, t);
+        o.frequency.exponentialRampToValueAtTime(28, t + 1.5);
+        const og = ctx.createGain();
+        og.gain.setValueAtTime(1, t);
+        og.gain.exponentialRampToValueAtTime(0.001, t + 2);
+        o.connect(og).connect(this.sfxBus);
+        o.start(t);
+        o.stop(t + 2.1);
+        // 落ちてくる破片の金属音
+        for (let i = 0; i < 9; i++) burst(0.5 + Math.random() * 2.5, 0.15, 'bandpass', 1500 + Math.random() * 3000, 900, 0.25 + Math.random() * 0.2, 8);
+        // 燃える音
+        for (let i = 0; i < 30; i++) burst(1 + Math.random() * 6, 0.05, 'highpass', 3000, 2000, 0.05 + Math.random() * 0.08);
         break;
       }
     }
