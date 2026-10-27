@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.cache/
+.wrangler/
+.dev.vars
+test-results/
+playwright-report/
+evolution/stats.json
+evolution/direction.json
+*.log

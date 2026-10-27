@@ -1,0 +1,36 @@
+{
+  "name": "tsukuba-flight",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "筑波大学の上空を、いろんな乗り物と音で飛ぶ WebGL ゲーム。遊ばれるほど変わっていく。",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "local": "npm run build && wrangler d1 migrations apply tsukuba-flight --local && wrangler dev --local --ip 0.0.0.0 --port 8787",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "test": "npm run typecheck && vitest run && npm run build",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "db:local": "wrangler d1 migrations apply tsukuba-flight --local",
+    "db:remote": "wrangler d1 migrations apply tsukuba-flight --remote",
+    "deploy": "npm test && wrangler d1 migrations apply tsukuba-flight --remote && wrangler deploy",
+    "evolve:stats": "node scripts/evolve/fetch-stats.mjs",
+    "evolve:pick": "node scripts/evolve/pick.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261027.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
+    "@types/three": "^0.186.0",
+    "three": "^0.186.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.153.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261023.1": true
+  }
+}

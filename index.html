@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1b2a" />
+    <meta name="description" content="筑波大学の上空を、いろんな乗り物と音で飛ぶ WebGL ゲーム。遊ばれるほど変わっていく。" />
+    <title>つくばフライト</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛩️</text></svg>" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <div id="loading" class="screen">
+      <div class="loading-box">
+        <div class="logo">つくばフライト</div>
+        <div class="bar"><div id="loading-fill"></div></div>
+        <div id="loading-text">筑波大学をつくっています…</div>
+      </div>
+    </div>
+
+    <div id="title" class="screen hidden">
+      <div class="title-box">
+        <div class="logo big">つくばフライト</div>
+        <div class="tagline">筑波大学の空を、好きな乗り物と好きな音で。</div>
+        <div id="generation" class="generation"></div>
+        <button id="btn-hangar" class="primary big-btn">格納庫へ</button>
+        <details class="evolution">
+          <summary>このゲームの進化の記録</summary>
+          <ol id="evolution-list" reversed></ol>
+        </details>
+        <p class="note">プレイの記録（選んだ乗り物・飛行時間など）は匿名でサーバーに保存され、次の世代のゲームづくりに使われます。名前やメールアドレスなどは集めません。</p>
+      </div>
+    </div>
+
+    <div id="hangar" class="screen hidden">
+      <div class="hangar-box">
+        <header class="hangar-head">
+          <button id="btn-back-title" class="ghost">←</button>
+          <h1>格納庫</h1>
+          <span class="spacer"></span>
+        </header>
+        <section>
+          <h2>1. 乗り物</h2>
+          <div id="pick-vehicle" class="cards"></div>
+          <label class="inline">機体の色 <input type="color" id="vehicle-color" /> <button id="vehicle-color-reset" class="ghost small">元に戻す</button></label>
+        </section>
+        <section>
+          <h2>2. 燃料</h2>
+          <div id="pick-fuel" class="cards"></div>
+        </section>
+        <section>
+          <h2>3. 一緒に乗せる（3 つまで）</h2>
+          <div id="pick-passenger" class="cards"></div>
+          <button id="btn-new-passenger" class="ghost">＋ 自分で音をつくる</button>
+        </section>
+        <section>
+          <h2>4. 軌跡</h2>
+          <div class="trail-row">
+            <label><input type="radio" name="trail-mode" value="auto" checked /> おまかせ（燃料と音で色が変わる）</label>
+            <label><input type="radio" name="trail-mode" value="custom" /> 自分で選ぶ <input type="color" id="trail-color" value="#ff4fa3" /></label>
+          </div>
+          <div class="trail-row">
+            <label><input type="radio" name="trail-style" value="ribbon" checked /> リボン</label>
+            <label><input type="radio" name="trail-style" value="rainbow" /> 虹</label>
+            <label><input type="radio" name="trail-style" value="dots" /> 点線</label>
+          </div>
+        </section>
+        <section>
+          <h2>5. モード</h2>
+          <div id="pick-mode" class="cards"></div>
+        </section>
+        <section>
+          <h2>音量</h2>
+          <div class="volumes">
+            <label>全体 <input type="range" id="vol-master" min="0" max="1" step="0.05" /></label>
+            <label>エンジン <input type="range" id="vol-engine" min="0" max="1" step="0.05" /></label>
+            <label>搭乗者 <input type="range" id="vol-passengers" min="0" max="1" step="0.05" /></label>
+          </div>
+        </section>
+        <div class="start-bar">
+          <div id="summary" class="summary"></div>
+          <button id="btn-start" class="primary big-btn">よーい、スタート！</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="editor" class="screen hidden modal">
+      <div class="editor-box">
+        <h2>音をつくる</h2>
+        <label>なまえ <input type="text" id="ed-name" maxlength="20" placeholder="例：ピアノのおばけ" /></label>
+        <label>アイコン <select id="ed-emoji"></select></label>
+        <label>ベース <select id="ed-preset"></select></label>
+        <label>音色 <select id="ed-wave">
+          <option value="sine">やわらか（サイン波）</option>
+          <option value="triangle">まるい（三角波）</option>
+          <option value="square">ピコピコ（矩形波）</option>
+          <option value="sawtooth">ブーン（ノコギリ波）</option>
+          <option value="noise">ザー（ノイズ）</option>
+        </select></label>
+        <label>高さ <input type="range" id="ed-pitch" min="-24" max="24" step="1" /></label>
+        <label>テンポ <input type="range" id="ed-bpm" min="40" max="240" step="1" /></label>
+        <label>ゆらぎ <input type="range" id="ed-vibrato" min="0" max="2" step="0.05" /></label>
+        <label>人数 <input type="range" id="ed-voices" min="1" max="6" step="1" /></label>
+        <div class="steps-label">メロディ（各マスの高さ。いちばん下は休み）</div>
+        <div id="ed-steps" class="steps"></div>
+        <label>軌跡の色 <input type="color" id="ed-color" value="#ff4fa3" /></label>
+        <label class="inline"><input type="checkbox" id="ed-follow" checked /> 高く飛ぶほど音を高くする</label>
+        <div class="editor-actions">
+          <button id="ed-preview" class="ghost">▶ 試聴</button>
+          <button id="ed-delete" class="ghost danger">削除</button>
+          <span class="spacer"></span>
+          <button id="ed-cancel" class="ghost">やめる</button>
+          <button id="ed-save" class="primary">保存して乗せる</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-cell"><span class="hud-label">速さ</span><span id="hud-speed">0</span><small>km/h</small></div>
+        <div class="hud-cell"><span class="hud-label">高さ</span><span id="hud-alt">0</span><small>m</small></div>
+        <div class="hud-cell"><span class="hud-label">時間</span><span id="hud-time">0:00</span></div>
+        <div class="hud-cell" id="hud-cp-cell"><span class="hud-label">リング</span><span id="hud-cp">0/0</span></div>
+      </div>
+      <div class="hud-fuel"><span class="hud-label">燃料</span><div class="fuel-bar"><div id="hud-fuel"></div></div></div>
+      <div id="hud-target" class="hud-target"><div id="hud-arrow">▲</div><div id="hud-target-text"></div></div>
+      <div id="hud-message" class="hud-message"></div>
+      <div id="hud-count" class="hud-count"></div>
+      <div class="hud-buttons">
+        <button id="btn-camera" class="round" title="カメラ (C)">🎥</button>
+        <button id="btn-mute" class="round" title="音 (M)">🔊</button>
+        <button id="btn-pause" class="round" title="一時停止 (P)">⏸</button>
+      </div>
+      <div id="help" class="help">↑↓←→ 操縦 ／ W・S スロットル ／ C カメラ ／ P 一時停止</div>
+      <div id="stick-zone"></div>
+      <div id="stick-base"><div id="stick-knob"></div></div>
+      <div id="throttle"><div id="throttle-fill"></div><span>スロットル</span></div>
+    </div>
+
+    <div id="pause" class="screen hidden modal">
+      <div class="result-box">
+        <h2>一時停止</h2>
+        <button id="btn-resume" class="primary">つづける</button>
+        <button id="btn-quit" class="ghost">やめて格納庫へ</button>
+      </div>
+    </div>
+
+    <div id="result" class="screen hidden modal">
+      <div class="result-box">
+        <div id="result-emoji" class="result-emoji"></div>
+        <h2 id="result-title"></h2>
+        <div id="result-cause" class="result-cause"></div>
+        <div id="result-score" class="result-score"></div>
+        <dl id="result-stats" class="result-stats"></dl>
+        <button id="btn-retry" class="primary">もう一度</button>
+        <button id="btn-to-hangar" class="ghost">格納庫へ</button>
+      </div>
+    </div>
+
+    <footer id="credit">地形・航空写真: 国土地理院 ／ 建物・森: © OpenStreetMap contributors ／ 滑走路は架空です</footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
