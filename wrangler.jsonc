@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "tsukuba-flight",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "8d4d55cb-4da0-4956-9b8f-21442a5dc49c",
       "migrations_dir": "migrations"
     }
   ],

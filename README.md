@@ -6,6 +6,8 @@
 
 ![タイトル画面。筑波大学のキャンパスと筑波山](docs/images/hero.jpg)
 
+**[▶ ブラウザで遊ぶ](https://tsukuba-flight.akkunlab.workers.dev)**
+
 WebGL（three.js） ・ パソコンとスマホ ・ インストール不要 ・ 筑波大学非公式
 
 </div>
