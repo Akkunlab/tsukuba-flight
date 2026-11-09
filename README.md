@@ -81,7 +81,7 @@ flowchart LR
   M --> P
 ```
 
-AI は 6 時間ごとに [docs/EVOLUTION.md](docs/EVOLUTION.md) に沿って 1 つ変更を加えます。AI に渡すのは数値の集計だけで、プレイヤーが入力した文字は渡しません。
+AI は 1 日 1 回、[docs/EVOLUTION.md](docs/EVOLUTION.md) に沿って 1 つ変更を加えます。AI に渡すのは数値の集計だけで、プレイヤーが入力した文字は渡しません。
 
 ## 技術
 
