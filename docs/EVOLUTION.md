@@ -11,6 +11,8 @@ TF_URL=<本番 URL> npm run evolve:stats   # evolution/stats.json に集計を�
 npm run evolve:pick                      # evolution/direction.json に「何を変えるか」をランダムに決める
 ```
 
+`evolve:stats` が失敗したら、ここで止める。何も変えず、push せず、失敗したことと理由を報告して終わる（プレイ記録を見ずに世代を進めない）。
+
 1. `evolution/stats.json` と `evolution/direction.json` を読む（stats には機体・燃料・搭乗者・ミッションごとの結果、墜落の多い場所、搭乗者の音楽がどう鳴っていたか（テンポ・勢い・リズムの細かさ）などが入っている）
 2. `src/content/evolution-log.json` を読み、これまでの変化と重ならないことを確かめる
 3. direction の primary を必ず 1 つ実装する。中身（何の乗り物か、どんな音か）は自由に考えてよい
@@ -26,6 +28,7 @@ npm run evolve:pick                      # evolution/direction.json に「何を
 - **個人情報を集めない・載せない。** 名前やメールアドレスなどを記録する仕組みを足さない。集計 API に自由入力の文字列を出さない
 - 秘密の値（トークン、URL のクエリなど）をリポジトリに書かない
 - `npm test` と `npm run test:e2e` を通す。main に直接 push しない
+- `evolve:stats` が失敗したら世代を進めない
 - 地図の出典表示（国土地理院・OpenStreetMap）を消さない
 
 ## 大事にしたいこと
