@@ -81,77 +81,28 @@ flowchart LR
   M --> P
 ```
 
-- AI は手順書 [docs/EVOLUTION.md](docs/EVOLUTION.md) に沿って、乗り物・音・景色・ミッション・調整などから 1 つを選んで実装します
-- プレイ記録は**数値と既知の ID だけ**で渡します。プレイヤーが入力した文字列は AI に渡らないので、AI を操る書き込み（プロンプトインジェクション）は届きません
-- テストは「壊れたら遊べない」ことだけを確かめます。通らなければ公開されません
-- タイトル画面の「GENERATION」を押すと、これまでの進化の記録が見られます
+AI は 6 時間ごとに [docs/EVOLUTION.md](docs/EVOLUTION.md) に沿って 1 つ変更を加えます。AI に渡すのは数値の集計だけで、プレイヤーが入力した文字は渡しません。
 
 ## 技術
 
-| | |
-| --- | --- |
-| 描画 | three.js（WebGL）。PBR マテリアル、太陽の影、空の映り込み、大気の霞 |
-| 画面 | 素の HTML と CSS、TypeScript。アイコンは自作の SVG |
-| 音 | Web Audio でその場で合成（音声ファイルなし） |
-| 物理 | 機体ごとの簡単な飛行モデル（three.js に依存しない TypeScript） |
-| サーバー | Cloudflare Workers ＋ D1 |
-| ビルドとテスト | Vite、Vitest、Playwright |
-| 地図 | 国土地理院の標高タイル（遊ぶたびに読み込む）と航空写真、OpenStreetMap の建物・森・水辺 |
-
-```
-src/content/   乗り物・燃料・搭乗者・ミッション・景色のデータ（ここを足すとゲームが増える）
-src/sim/       物理・当たり判定・ゲームの進行（テスト対象）
-src/world/     地形・建物・木・景色の 3D と、標高の読み込み
-src/render/    機体・軌跡・爆発・リプレイ
-src/audio/     音の合成
-src/ui/        格納庫とアイコン
-worker/        Cloudflare Worker（配信とプレイ記録 API）
-scripts/       地図データの作成、進化ループの補助
-```
-
-## 手元で動かす
+three.js（WebGL）・TypeScript・Web Audio・Cloudflare Workers ＋ D1・Vite・Vitest・Playwright
 
 ```sh
 npm ci
-npm run local      # ビルドして http://localhost:8787 で起動（プレイ記録はローカルの D1 に保存）
+npm run local      # http://localhost:8787 で起動
 npm test           # 型チェック・ユニットテスト・ビルド
 npm run test:e2e   # ブラウザでの通しテスト
 ```
 
-描画の重さは格納庫の「設定」で低・中・高から選べます（最初はスマホが中、パソコンが高）。
-
-| | 高 | 中 | 低 |
-| --- | --- | --- | --- |
-| 空と光 | 物理ベースの大気・空気遠近 | 物理ベースの大気・空気遠近 | 簡単な空と霧 |
-| 雲 | 立体の雲 | 板の雲 | 板の雲（少なめ） |
-| 影 | 遠くまで（カスケード） | 自機のまわり | なし |
-| 接地の暗さ（AO） | あり | なし | なし |
-| 木 | 多い・影あり | ふつう | 少ない |
-
 ## 集めるデータ
 
-ゲームを良くしていくために、遊んだ記録を**数値だけ**集めています。
+ゲームの改善のため、選んだ機体などの設定・飛び方・結果を数値で記録します。ブラウザごとのランダムな ID で記録し、個人情報は集めません。
 
-- 選んだもの：ミッション・機体・燃料・搭乗者・軌跡の色と形・機体の色・描画の重さ
-- 結果：飛行時間・距離・最高高度・最高速度・リングと風船の数・得点・終わり方
-- 飛び方（0.5 秒ごと）：位置・向き・スロットル・速さ・操作
-- 搭乗者の音楽（0.5 秒ごと）：テンポ・勢い・リズムの細かさ・移調・逆再生かどうか
-- 出来事の時刻：離陸・リング通過・風船・接地・カメラ切り替え・一時停止
-
-ブラウザごとのランダムな ID で記録し、名前やメールアドレスなどの個人情報は集めません。AI に渡す集計も数値と既知の ID だけです。
-
-## 出典
-
-- 標高：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)の標高タイル。リポジトリには含めず、遊ぶたびに国土地理院から読み込み、ゲームの中で地形に加工しています
-- 航空写真：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)の地理院タイル（全国最新写真（シームレス））を加工して作成（撮影時期の違う写真の継ぎ目と色をならしています）
-- 建物・森・水域・建物の名前：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
-- 立体の雲（描画「高」）：[three-geospatial](https://github.com/takram-design-engineering/three-geospatial)（MIT）の雲のテクスチャ（`public/clouds/`）。ブルーノイズのテクスチャは遊ぶときに同プロジェクトから読み込みます
-- 滑走路と発射台は架空のものです
-
-このゲームは筑波大学とは関係のない、非公式のファンゲームです。
-
-## ライセンス
+## 出典・ライセンス
 
 - コード：[MIT](LICENSE)
-- `public/data/world.json` のうち建物・森・水域・名前（OpenStreetMap 由来）：[Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/)
-- `public/data/near.jpg`・`far.jpg`：[国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)に従う
+- 標高・航空写真：[国土地理院](https://maps.gsi.go.jp/development/ichiran.html)のタイルを加工して作成（[利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)）
+- 建物・森・水域：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（[ODbL](https://opendatacommons.org/licenses/odbl/1-0/)）
+- 雲のテクスチャ：[three-geospatial](https://github.com/takram-design-engineering/three-geospatial)（MIT）
+
+筑波大学とは関係のない非公式のファンゲームです。滑走路と発射台は架空のものです。
