@@ -153,6 +153,52 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
       },
     };
   },
+
+  birds(def, ctx) {
+    const g = new THREE.Group();
+    const r = rng(num(def.params.seed, 1));
+    const count = num(def.params.count, 7);
+    const cx = num(def.params.x, 0);
+    const cz = num(def.params.z, 0);
+    const radius = num(def.params.radius, 400);
+    const alt = num(def.params.alt, 90);
+    const speed = num(def.params.speed, 0.05);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xf4f4f0, side: THREE.DoubleSide });
+    const wingGeo = new THREE.BufferGeometry();
+    wingGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.5, 0, 0, -0.4, 2.6, 0, -0.1], 3));
+    const birds: { root: THREE.Group; l: THREE.Mesh; r: THREE.Mesh; off: number; slot: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      const root = new THREE.Group();
+      const l = new THREE.Mesh(wingGeo, mat);
+      const rt = new THREE.Mesh(wingGeo, mat);
+      l.scale.x = -1;
+      root.add(l, rt);
+      root.scale.setScalar(2.2);
+      g.add(root);
+      // V 字の隊列：先頭から左右に交互に並ぶ
+      birds.push({ root, l, r: rt, off: r() * 6, slot: i });
+    }
+    return {
+      object: g,
+      update: (_dt, t) => {
+        const a = t * speed;
+        for (const b of birds) {
+          const side = b.slot % 2 === 0 ? 1 : -1;
+          const rank = Math.ceil(b.slot / 2);
+          const ang = a - (rank * 9) / radius;
+          const rr = radius + side * rank * 7;
+          const x = cx + Math.cos(ang) * rr;
+          const z = cz + Math.sin(ang) * rr;
+          const y = ctx.world.terrainHeight(cx, cz) + alt + Math.sin(t * 0.3 + b.off) * 4;
+          b.root.position.set(x, y, z);
+          b.root.rotation.y = -ang;
+          const flap = Math.sin(t * 5 + b.off) * 0.55;
+          b.l.rotation.z = flap;
+          b.r.rotation.z = -flap;
+        }
+      },
+    };
+  },
 };
 
 export const SCENERY_KINDS = Object.keys(SCENERY_BUILDERS);

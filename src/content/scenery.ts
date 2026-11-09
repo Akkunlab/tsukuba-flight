@@ -12,5 +12,7 @@ export const SCENERY: SceneryDef[] = [
   { id: 'label-ichinoya', name: '一の矢', kind: 'label', params: { x: -380, z: -1420, y: 40, text: '一の矢学生宿舎' } },
   { id: 'label-tsukubasan', name: '筑波山', kind: 'label', params: { x: 420, z: -13250, y: 950, text: '筑波山', scale: 12 } },
   { id: 'windsock', name: '吹き流し', kind: 'windsock', params: { x: 100, z: -800 } },
+  { id: 'birds-kasuga', name: '渡り鳥（春日）', kind: 'birds', params: { x: 300, z: 1900, radius: 450, alt: 95, count: 7, seed: 3 } },
+  { id: 'birds-campus', name: '渡り鳥（キャンパス）', kind: 'birds', params: { x: -150, z: -700, radius: 600, alt: 120, count: 5, seed: 11, speed: 0.04 } },
   { id: 'clouds', name: '雲', kind: 'clouds', params: { count: 40, seed: 7 } },
 ];
