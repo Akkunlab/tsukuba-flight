@@ -233,6 +233,35 @@ const SHAPES: Record<string, Builder> = {
     return { group: g, spinners, discs, flames: [], tail: new THREE.Vector3(0, 0.45, 0.4) };
   },
 
+  balloon(color) {
+    const g = new THREE.Group();
+    const stripe = canvasTexture(256, 64, (c) => {
+      const cols = [color, '#f2e8d5'];
+      for (let i = 0; i < 8; i++) {
+        c.fillStyle = cols[i % 2];
+        c.fillRect(i * 32, 0, 32, 64);
+      }
+    });
+    const env = lathe([[0.05, -9.5], [3.2, -8.2], [5.6, -5.2], [6.4, -1.6], [5.4, 2.4], [3.2, 5.4], [1.4, 7.0], [1.5, 7.6]], 32);
+    const env1 = mesh(env, std(0xffffff, 0.7, 0, { map: stripe, side: THREE.DoubleSide }), 0, 11.5, 0);
+    // lathe は z 方向が軸なので、立てる
+    env1.geometry.rotateX(-Math.PI / 2);
+    g.add(env1);
+    const wicker = std(0x9c6b3e, 0.9);
+    g.add(mesh(new THREE.BoxGeometry(1.5, 1.0, 1.5), wicker, 0, 0.5, 0));
+    g.add(mesh(new THREE.BoxGeometry(1.62, 0.1, 1.62), std(0x6b4423, 0.8), 0, 1.0, 0));
+    for (const [x, z] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) {
+      g.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 4.6, 6), metal(0x888888), x, 3.3, z));
+    }
+    g.add(mesh(new THREE.TorusGeometry(0.8, 0.06, 6, 20).rotateX(Math.PI / 2), metal(0x777777), 0, 5.6, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.9, 10), metal(0xc0c0c0, 0.3), 0.9, 0.6, 0));
+    const fl = flame(0.35, 1.8, 0xff9a30);
+    fl.rotation.x = -Math.PI / 2;
+    fl.position.set(0, 6.0, 0);
+    g.add(fl);
+    return { group: g, spinners: [], discs: [], flames: [fl], tail: new THREE.Vector3(0, 0.6, 0) };
+  },
+
   kotatsu(color) {
     const g = new THREE.Group();
     const futonTex = canvasTexture(256, 256, (c) => {
