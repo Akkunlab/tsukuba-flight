@@ -30,4 +30,20 @@ export const MODES: ModeDef[] = [
     checkpoints: [],
     targets: { count: 15, radius: 9, x: 0, z: -300, spread: 1100, minAlt: 35, maxAlt: 140 },
   },
+  {
+    id: 'runway',
+    name: '滑走路ゆうゆう周回',
+    icon: 'wind',
+    description: '滑走路のまわりに高めに並んだ 5 つのリングを、風のおだやかな空で一周する。',
+    objective: 'リングを順番にくぐって、滑走路に戻る',
+    timeLimit: 0,
+    wind: 0.5,
+    checkpoints: [
+      { name: '滑走路の北', x: 50, z: -1700, alt: 120 },
+      { name: '一の矢の上空', x: -380, z: -1420, alt: 130 },
+      { name: '研究学園の南', x: -250, z: -900, alt: 120 },
+      { name: '実験棟の上空', x: 200, z: -1000, alt: 110 },
+      { name: '滑走路', x: 50, z: -1300, alt: 70 },
+    ],
+  },
 ];
