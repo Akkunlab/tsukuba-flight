@@ -10,9 +10,9 @@ export const MODES: ModeDef[] = [
     timeLimit: 0,
     wind: 2,
     checkpoints: [
-      { name: '一の矢学生宿舎', x: -380, z: -1420, alt: 100 },
-      { name: '中央図書館', x: -59, z: -347, alt: 90 },
-      { name: '大学会館', x: -8, z: 61, alt: 70 },
+      { name: '一の矢学生宿舎', x: -380, z: -1420, alt: 125 },
+      { name: '中央図書館', x: -59, z: -347, alt: 110 },
+      { name: '大学会館', x: -8, z: 61, alt: 85 },
       { name: 'T-Dome', x: 321, z: 192, alt: 60 },
       { name: '平砂学生宿舎', x: 200, z: 900, alt: 80 },
       { name: '附属病院', x: -83, z: 1436, alt: 110 },
@@ -40,8 +40,8 @@ export const MODES: ModeDef[] = [
     wind: 0.5,
     checkpoints: [
       { name: '滑走路の北', x: 50, z: -1700, alt: 120 },
-      { name: '一の矢の上空', x: -380, z: -1420, alt: 130 },
-      { name: '研究学園の南', x: -250, z: -900, alt: 120 },
+      { name: '一の矢の上空', x: -380, z: -1420, alt: 140 },
+      { name: '研究学園の南', x: -250, z: -900, alt: 135 },
       { name: '実験棟の上空', x: 200, z: -1000, alt: 135 },
       { name: '滑走路', x: 50, z: -1300, alt: 70 },
     ],
