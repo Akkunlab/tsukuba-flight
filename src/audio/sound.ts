@@ -465,7 +465,7 @@ export class AudioEngine {
   private analyserData = new Uint8Array(256);
   private engine: EngineSound | null = null;
   private players: RecipePlayer[] = [];
-  private wind: { gain: GainNode; filter: BiquadFilterNode; src: AudioBufferSourceNode } | null = null;
+  private wind: { gain: GainNode; filter: BiquadFilterNode; src: AudioBufferSourceNode; whistle: BiquadFilterNode; whistleGain: GainNode } | null = null;
   private preview: RecipePlayer | null = null;
   private previewTimer = 0;
   private previewInterval = 0;
@@ -513,8 +513,16 @@ export class AudioEngine {
     const gain = this.ctx.createGain();
     gain.gain.value = 0;
     src.connect(filter).connect(gain).connect(this.engineBus);
+    // 風切り音：旋回で鳴る高い笛のような音（バンクを深くすると高く、強くなる）
+    const whistle = this.ctx.createBiquadFilter();
+    whistle.type = 'bandpass';
+    whistle.Q.value = 12;
+    whistle.frequency.value = 1200;
+    const whistleGain = this.ctx.createGain();
+    whistleGain.gain.value = 0;
+    src.connect(whistle).connect(whistleGain).connect(this.engineBus);
     src.start();
-    this.wind = { gain, filter, src };
+    this.wind = { gain, filter, src, whistle, whistleGain };
   }
 
   /** 搭乗者の音楽の今の状態（最初の搭乗者。誰も乗っていなければ null） */
@@ -533,6 +541,10 @@ export class AudioEngine {
       const t = this.ctx.currentTime;
       this.wind.filter.frequency.setTargetAtTime(200 + s.speed * 18, t, 0.1);
       this.wind.gain.gain.setTargetAtTime(Math.min(0.35, s.speed / 250), t, 0.2);
+      const bank = Math.min(1, Math.abs(s.turn ?? 0));
+      const fast = Math.min(1, s.speed / 80);
+      this.wind.whistle.frequency.setTargetAtTime(900 + fast * 1400 + bank * 900, t, 0.15);
+      this.wind.whistleGain.gain.setTargetAtTime(bank * fast * 0.5, t, 0.25);
     }
   }
 
