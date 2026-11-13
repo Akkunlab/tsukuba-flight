@@ -6,7 +6,7 @@ import { inRunwayArea, PAD, RUNWAY_START, type World } from './world';
 export type Phase = 'countdown' | 'flying' | 'ended';
 export type Outcome = 'landed' | 'crashed' | 'fuel' | 'out' | 'timeout' | 'quit';
 
-export const RING_RADIUS = 44;
+export const RING_RADIUS = 50;
 export const COUNTDOWN = 3;
 
 export interface FlightEvent {
