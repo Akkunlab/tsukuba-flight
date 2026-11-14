@@ -28,7 +28,7 @@ export const MODES: ModeDef[] = [
     timeLimit: 240,
     wind: 1.5,
     checkpoints: [],
-    targets: { count: 15, radius: 9, x: 0, z: -300, spread: 1100, minAlt: 35, maxAlt: 140 },
+    targets: { count: 15, radius: 13, x: 0, z: -300, spread: 900, minAlt: 35, maxAlt: 140 },
   },
   {
     id: 'runway',
