@@ -189,4 +189,27 @@ export const PASSENGERS: PassengerDef[] = [
       follow: { speed: 1 },
     },
   },
+  {
+    id: 'taiko',
+    name: '和太鼓',
+    icon: 'drum',
+    description: 'ドン、ドドン。速いほど、勢いが増す。',
+    trailColor: '#e8553b',
+    sound: {
+      ...base,
+      wave: 'triangle',
+      base: 82,
+      pattern: [0, null, null, 0, 0, null, 7, null, 0, null, 0, 0, null, 12, 7, null],
+      bpm: 150,
+      gate: 0.25,
+      attack: 0.002,
+      release: 0.18,
+      filter: 700,
+      glide: 0.02,
+      gain: 0.5,
+      harmonics: [1, 0.6, 0.3, 0.15],
+      follow: { speed: 0.8 },
+    },
+  },
 ];
+
