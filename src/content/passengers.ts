@@ -211,5 +211,26 @@ export const PASSENGERS: PassengerDef[] = [
       follow: { speed: 0.8 },
     },
   },
+  {
+    id: 'music-box',
+    name: 'オルゴール',
+    icon: 'musicbox',
+    description: 'ゆったり、ぽろんぽろん。高いほど高い音。',
+    trailColor: '#f3d9a4',
+    sound: {
+      ...base,
+      wave: 'triangle',
+      base: 784,
+      pattern: [0, 4, 7, 12, 7, 4, 2, 5, 9, 14, 9, 5, 4, 7, 11, 16, 11, 7, 0, null, 4, null, 7, null],
+      bpm: 96,
+      gate: 0.15,
+      attack: 0.001,
+      release: 0.5,
+      filter: 6500,
+      gain: 0.2,
+      harmonics: [1, 0.25, 0.1],
+      follow: { altitude: 0.4 },
+    },
+  },
 ];
 
