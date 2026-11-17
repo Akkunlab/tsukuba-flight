@@ -465,7 +465,7 @@ export class AudioEngine {
   private analyserData = new Uint8Array(256);
   private engine: EngineSound | null = null;
   private players: RecipePlayer[] = [];
-  private wind: { gain: GainNode; filter: BiquadFilterNode; src: AudioBufferSourceNode; whistle: BiquadFilterNode; whistleGain: GainNode } | null = null;
+  private wind: { gain: GainNode; filter: BiquadFilterNode; src: AudioBufferSourceNode; whistle: BiquadFilterNode; whistleGain: GainNode; dive: BiquadFilterNode; diveGain: GainNode } | null = null;
   private preview: RecipePlayer | null = null;
   private previewTimer = 0;
   private previewInterval = 0;
@@ -521,8 +521,16 @@ export class AudioEngine {
     const whistleGain = this.ctx.createGain();
     whistleGain.gain.value = 0;
     src.connect(whistle).connect(whistleGain).connect(this.engineBus);
+    // 急降下の風圧音：落ちる速さに合わせて、うなる低い風が高く強くなる
+    const dive = this.ctx.createBiquadFilter();
+    dive.type = 'bandpass';
+    dive.Q.value = 2;
+    dive.frequency.value = 250;
+    const diveGain = this.ctx.createGain();
+    diveGain.gain.value = 0;
+    src.connect(dive).connect(diveGain).connect(this.engineBus);
     src.start();
-    this.wind = { gain, filter, src, whistle, whistleGain };
+    this.wind = { gain, filter, src, whistle, whistleGain, dive, diveGain };
   }
 
   /** 搭乗者の音楽の今の状態（最初の搭乗者。誰も乗っていなければ null） */
@@ -545,6 +553,9 @@ export class AudioEngine {
       const fast = Math.min(1, s.speed / 80);
       this.wind.whistle.frequency.setTargetAtTime(900 + fast * 1400 + bank * 900, t, 0.15);
       this.wind.whistleGain.gain.setTargetAtTime(bank * fast * 0.5, t, 0.25);
+      const fall = Math.max(0, Math.min(1, (-(s.climb ?? 0) - 5) / 35));
+      this.wind.dive.frequency.setTargetAtTime(250 + fall * 900, t, 0.2);
+      this.wind.diveGain.gain.setTargetAtTime(fall * fall * 0.7, t, 0.3);
     }
   }
 
