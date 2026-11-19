@@ -199,6 +199,39 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
       },
     };
   },
+
+  // 滑走路から北へ延びる、順に光る誘導灯の列（光が先へ流れて進む向きを示す）
+  beacons(def, ctx) {
+    const g = new THREE.Group();
+    const x0 = num(def.params.x, 0);
+    const z0 = num(def.params.z, 0);
+    const dz = num(def.params.dz, -120);
+    const count = num(def.params.count, 12);
+    const lamps: THREE.Mesh[] = [];
+    for (let i = 0; i < count; i++) {
+      const x = x0;
+      const z = z0 + dz * i;
+      const ground = ctx.world.terrainHeight(x, z);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 12, 6), new THREE.MeshStandardMaterial({ color: 0xcfd6dc, roughness: 0.5, metalness: 0.5 }));
+      post.position.set(x, ground + 6, z);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd25a, transparent: true, opacity: 0.3, toneMapped: false }));
+      lamp.position.set(x, ground + 13, z);
+      g.add(post, lamp);
+      lamps.push(lamp);
+    }
+    return {
+      object: g,
+      update: (_dt, t) => {
+        const head = (t * 2.5) % (count + 3);
+        lamps.forEach((l, i) => {
+          const d = head - i;
+          const on = d >= 0 && d < 3 ? 1 - d / 3 : 0;
+          (l.material as THREE.MeshBasicMaterial).opacity = 0.25 + 0.75 * on;
+          l.scale.setScalar(1 + 0.5 * on);
+        });
+      },
+    };
+  },
 };
 
 export const SCENERY_KINDS = Object.keys(SCENERY_BUILDERS);
