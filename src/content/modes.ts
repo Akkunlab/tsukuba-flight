@@ -5,11 +5,12 @@ export const MODES: ModeDef[] = [
     id: 'tour',
     name: '筑波大一周ツアー',
     icon: 'tour',
-    description: '名所に浮かぶ 7 つのリングを順にくぐり、春日で終わる。',
+    description: '名所に浮かぶ 8 つのリングを順にくぐり、春日で終わる。',
     objective: 'リングを順番にくぐって、着陸する',
     timeLimit: 0,
     wind: 2,
     checkpoints: [
+      { name: '滑走路の上空', x: 50, z: -1500, alt: 110 },
       { name: '一の矢学生宿舎', x: -380, z: -1420, alt: 140 },
       { name: '中央図書館', x: -59, z: -347, alt: 110 },
       { name: '大学会館', x: -8, z: 61, alt: 85 },
