@@ -199,6 +199,27 @@ const SHAPES: Record<string, Builder> = {
     return { group: g, spinners: [{ obj: fan, axis: 'z', speed: 40 }], discs: [], flames: [], tail: new THREE.Vector3(0, 1, 3) };
   },
 
+  glider(color) {
+    const g = new THREE.Group();
+    const paint = std(color, 0.3, 0.05, { envMapIntensity: 1.2 });
+    const accent = std(0xc8372d, 0.4, 0.05);
+    const body = mesh(lathe([[0.05, -3.2], [0.3, -2.9], [0.45, -2.2], [0.42, -0.8], [0.3, 1.2], [0.14, 3.6], [0.07, 5.6]]), paint, 0, 1.0, 0);
+    body.scale.set(1, 1.1, 1);
+    g.add(body);
+    g.add(mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.42, 0.4, 1.3), glass(), 0, 1.3, -1.7));
+    g.add(mesh(wing([[-8.5, -0.1], [8.5, -0.1], [8.5, 0.4], [-8.5, 0.4]], 0.1), paint, 0, 1.45, -0.9));
+    for (const s of [-1, 1]) g.add(mesh(new THREE.BoxGeometry(0.5, 0.12, 0.6), accent, s * 8.3, 1.5, -0.7));
+    const fin = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(1.2, 0), new THREE.Vector2(0.6, 1.5), new THREE.Vector2(0.2, 1.5)]);
+    g.add(mesh(new THREE.ExtrudeGeometry(fin, { depth: 0.06, bevelEnabled: false }).rotateY(-Math.PI / 2).translate(0.03, 0, 0), paint, 0, 1.05, 4.2));
+    g.add(mesh(wing([[-1.8, -0.2], [1.8, -0.2], [1.5, 0.5], [-1.5, 0.5]], 0.06), paint, 0, 2.55, 4.4));
+    g.add(mesh(new THREE.BoxGeometry(0.04, 0.35, 0.3), metal(0xe0e0e0), 0, 0.5, -0.4));
+    const nw = wheel(0.2, 0.1);
+    nw.position.set(0, 0.2, -0.4);
+    g.add(nw);
+    g.add(mesh(new THREE.BoxGeometry(0.1, 0.06, 0.9), rubber(), 0, 0.5, -2.4));
+    return { group: g, spinners: [], discs: [], flames: [], tail: new THREE.Vector3(0, 1.1, 5.5) };
+  },
+
   drone(color) {
     const g = new THREE.Group();
     const body = std(color, 0.45, 0.2);
