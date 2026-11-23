@@ -235,11 +235,11 @@ export class Flight {
     if (kind === 'tree') return '森の木に突っ込んだ';
     switch (v.model) {
       case 'plane':
-        if (vs < -6) return 'ドスン！ 降下が速すぎた';
-        if (Math.abs(c.roll) > 0.45) return '傾いたまま接地した';
+        if (vs < -8) return 'ドスン！ 降下が速すぎた';
+        if (Math.abs(c.roll) > 0.6) return '傾いたまま接地した';
         if (c.pitch < -0.25) return '機首から地面に突っ込んだ';
         if (kind !== 'terrain' || !inRunwayArea(c.pos.x, c.pos.z, 8)) {
-          return horiz > 8 ? '滑走路以外に不時着した' : null;
+          return horiz > 12 ? '滑走路以外に不時着した' : null;
         }
         return null;
       case 'hover':
