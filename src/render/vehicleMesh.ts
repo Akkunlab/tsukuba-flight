@@ -254,6 +254,46 @@ const SHAPES: Record<string, Builder> = {
     return { group: g, spinners, discs, flames: [], tail: new THREE.Vector3(0, 0.45, 0.4) };
   },
 
+  heli(color) {
+    const g = new THREE.Group();
+    const paint = std(color, 0.32, 0.05, { envMapIntensity: 1.2 });
+    const dark = metal(0x2a2d33, 0.5);
+    const body = mesh(new THREE.SphereGeometry(1, 20, 14).scale(1.05, 1.15, 1.9), paint, 0, 1.75, -0.3);
+    g.add(body);
+    g.add(mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.98, 0.95, 1.2).rotateX(-0.25), glass(), 0, 1.95, -1.35));
+    g.add(mesh(new THREE.CylinderGeometry(0.16, 0.34, 4.6, 10).rotateX(Math.PI / 2), paint, 0, 2.05, 3.0));
+    g.add(mesh(new THREE.BoxGeometry(0.07, 1.1, 0.6), paint, 0, 2.5, 5.2));
+    g.add(mesh(new THREE.BoxGeometry(1.4, 0.07, 0.4), paint, 0, 2.2, 4.9));
+    g.add(mesh(new THREE.CylinderGeometry(0.15, 0.2, 0.5, 10), dark, 0, 3.15, -0.2));
+    const rotor = new THREE.Group();
+    rotor.position.set(0, 3.45, -0.2);
+    for (let i = 0; i < 2; i++) {
+      const b = mesh(new THREE.BoxGeometry(9.4, 0.04, 0.32), dark);
+      b.rotation.y = (i * Math.PI) / 2;
+      rotor.add(b);
+    }
+    g.add(rotor);
+    const d = disc(4.7, 'y');
+    d.position.copy(rotor.position);
+    g.add(d);
+    const tail = new THREE.Group();
+    tail.position.set(0.22, 2.55, 5.2);
+    tail.add(mesh(new THREE.BoxGeometry(0.03, 1.1, 0.07), dark));
+    tail.add(mesh(new THREE.BoxGeometry(0.03, 0.07, 1.1), dark));
+    g.add(tail);
+    for (const s of [-1, 1]) {
+      g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 8).rotateX(Math.PI / 2), dark, s * 1.0, 0.2, -0.2));
+      for (const z of [-1.1, 0.8]) g.add(mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), dark, s * 0.85, 0.75, z));
+    }
+    return {
+      group: g,
+      spinners: [{ obj: rotor, axis: 'y', speed: 45 }, { obj: tail, axis: 'x', speed: 60 }],
+      discs: [d],
+      flames: [],
+      tail: new THREE.Vector3(0, 2.2, 5.6),
+    };
+  },
+
   balloon(color) {
     const g = new THREE.Group();
     const stripe = canvasTexture(256, 64, (c) => {
