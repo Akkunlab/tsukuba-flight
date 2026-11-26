@@ -36,6 +36,7 @@ const P: Record<string, string> = {
   robot: '<rect x="5" y="8" width="14" height="11" rx="2"/><circle cx="9.5" cy="13" r="1.4"/><circle cx="14.5" cy="13" r="1.4"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1"/><path d="M3 12v3M21 12v3M9.5 16.5h5"/>',
   drum: '<ellipse cx="12" cy="9" rx="8" ry="3"/><path d="M4 9v7c0 1.7 3.6 3 8 3s8-1.3 8-3V9"/><path d="M6 11.5l3 6.5M18 11.5l-3 6.5"/><path d="M8 3l3 5M16 3l-3 5"/>',
   musicbox: '<rect x="3.5" y="11" width="17" height="9" rx="1.5"/><path d="M3.5 14h17"/><path d="M20.5 15.5h2M22.5 13v5"/><path d="M8 8V4l6-1.5v4"/><circle cx="6.5" cy="8" r="1.5"/><circle cx="12.5" cy="6.5" r="1.5"/>',
+  cello: '<path d="M12 2v7"/><path d="M10.5 3.5h3"/><path d="M12 9c-2 0-3 1.2-3 2.6 0 1 .6 1.6 1.2 2-1.4.8-3.2 2-3.2 4.4C7 20.6 9.2 22 12 22s5-1.4 5-4c0-2.4-1.8-3.6-3.2-4.4.6-.4 1.2-1 1.2-2C15 10.2 14 9 12 9z"/><path d="M12 16v4"/><path d="M18 6l-6 10"/>',
   star: '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5l-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/>',
   heart: '<path d="M12 20s-7.5-4.5-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.5-7.5 10-7.5 10z"/>',
   free: '<path d="M3 17c4-1 6-6 9-6s4 3 9 2"/><path d="M14 6.5 21 4l-2.5 7"/><path d="M21 4l-8 8"/>',
