@@ -13,6 +13,7 @@ export const SCENERY: SceneryDef[] = [
   { id: 'label-tsukubasan', name: '筑波山', kind: 'label', params: { x: 420, z: -13250, y: 950, text: '筑波山', scale: 12 } },
   { id: 'windsock', name: '吹き流し', kind: 'windsock', params: { x: 100, z: -800 } },
   { id: 'beacons-north', name: '誘導灯', kind: 'beacons', params: { x: 50, z: -1400, dz: -120, count: 12 } },
+  { id: 'markers-runway', name: '距離標識', kind: 'markers', params: { x: -20, z: -800, dz: -250, count: 3 } },
   { id: 'birds-kasuga', name: '渡り鳥（春日）', kind: 'birds', params: { x: 300, z: 1900, radius: 450, alt: 95, count: 7, seed: 3 } },
   { id: 'birds-campus', name: '渡り鳥（キャンパス）', kind: 'birds', params: { x: -150, z: -700, radius: 600, alt: 120, count: 5, seed: 11, speed: 0.04 } },
   { id: 'clouds', name: '雲', kind: 'clouds', params: { count: 40, seed: 7 } },

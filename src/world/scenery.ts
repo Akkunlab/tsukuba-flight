@@ -232,6 +232,25 @@ export const SCENERY_BUILDERS: Record<string, Builder> = {
       },
     };
   },
+
+  // 滑走路の脇に立つ距離標識。南端からの距離（m）が読めて、離陸の走り出しの目安になる
+  markers(def, ctx) {
+    const g = new THREE.Group();
+    const x = num(def.params.x, 0);
+    const z0 = num(def.params.z, 0);
+    const dz = num(def.params.dz, -250);
+    const count = num(def.params.count, 5);
+    for (let i = 1; i <= count; i++) {
+      const z = z0 + dz * i;
+      const ground = ctx.world.terrainHeight(x, z);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 6, 6), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.5 }));
+      post.position.set(x, ground + 3, z);
+      const label = textSprite(`${Math.abs(dz) * i}m`, { scale: 0.8 });
+      label.position.set(x, ground + 9, z);
+      g.add(post, label);
+    }
+    return { object: g };
+  },
 };
 
 export const SCENERY_KINDS = Object.keys(SCENERY_BUILDERS);
