@@ -47,4 +47,20 @@ export const MODES: ModeDef[] = [
       { name: '滑走路', x: 50, z: -1300, alt: 70 },
     ],
   },
+  {
+    id: 'center',
+    name: 'つくばセンターへ',
+    icon: 'free',
+    description: '滑走路から飛び立ち、大学の上を南へ縦断して、つくばセンターの空を目ざす 5 つのリング。',
+    objective: 'リングを順番にくぐって、つくばセンターまで飛ぶ',
+    timeLimit: 0,
+    wind: 0.8,
+    checkpoints: [
+      { name: '滑走路の上空', x: 50, z: -1500, alt: 120 },
+      { name: '中央図書館', x: -59, z: -347, alt: 120 },
+      { name: 'T-Dome', x: 321, z: 192, alt: 90 },
+      { name: '附属病院', x: -83, z: 1436, alt: 110 },
+      { name: 'つくばセンター', x: 931, z: 2616, alt: 90 },
+    ],
+  },
 ];
